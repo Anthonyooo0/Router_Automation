@@ -123,46 +123,39 @@ st.markdown(f"""
         display: none;
     }}
     
-    /* Quantity input - COMPACT */
-    .quantity-wrapper {{
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.5rem;
-    }}
-
-    .quantity-label {{
-        color: #6B7280;
-        font-size: 0.875rem;
-        font-weight: 500;
-        text-align: center;
-    }}
-
+    /* Quantity input - inline with file uploader */
     .stNumberInput {{
-        width: 120px !important;
+        width: 100% !important;
     }}
 
     .stNumberInput > div {{
-        width: 120px !important;
+        width: 100% !important;
     }}
 
     .stNumberInput > div > div {{
-        width: 120px !important;
+        width: 100% !important;
     }}
 
     .stNumberInput>div>div>input {{
         border: 1px solid #D1D5DB !important;
         border-radius: 8px !important;
-        padding: 0.5rem !important;
-        font-size: 1rem !important;
-        width: 120px !important;
+        padding: 0.75rem !important;
+        font-size: 0.95rem !important;
+        width: 100% !important;
         background: white !important;
         text-align: center !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
     }}
 
     .stNumberInput>div>div>input:focus {{
         border-color: {PRIMARY_COLOR} !important;
         box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.1) !important;
+        outline: none !important;
+    }}
+
+    .stNumberInput>div>div>input::placeholder {{
+        color: #9CA3AF !important;
+        font-size: 0.875rem !important;
     }}
 
     /* Hide number input buttons */
@@ -698,17 +691,15 @@ st.markdown(f'<div class="{content_class}">', unsafe_allow_html=True)
 if len(st.session_state.chat_history) == 0:
     st.markdown('<h1 class="welcome-heading">Import a Drawing</h1>', unsafe_allow_html=True)
 
-# Horizontal input container using columns
-col1, col2 = st.columns([4, 1])
+# File uploader and quantity in one line
+col1, col2 = st.columns([5, 1])
 
 with col1:
     uploaded_file = st.file_uploader("Upload", type=['pdf'], label_visibility="collapsed", key="file_upload")
 
 with col2:
-    st.markdown('<div style="padding-top: 0.5rem;">', unsafe_allow_html=True)
-    st.markdown('<p style="color: #6B7280; font-size: 0.875rem; font-weight: 500; text-align: center; margin-bottom: 0.5rem;">Quantity</p>', unsafe_allow_html=True)
-    quantity = st.number_input("Qty", min_value=1, value=50, key="quantity_input", label_visibility="collapsed")
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Quantity input embedded next to browse files
+    quantity = st.number_input("Qty", min_value=1, value=50, key="quantity_input", label_visibility="collapsed", placeholder="Qty")
 
 # Generate button (completely hidden but functional for JavaScript trigger)
 # Using session state to track button clicks without showing the button
