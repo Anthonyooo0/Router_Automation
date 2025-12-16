@@ -74,7 +74,14 @@ st.markdown(f"""
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        min-height: calc(100vh - 100px);
+        min-height: 80vh;
+    }}
+
+    /* When chat exists, move input to bottom */
+    .main-content.with-chat {{
+        justify-content: flex-end;
+        min-height: auto;
+        padding-bottom: 2rem;
     }}
     
     /* Welcome heading */
@@ -99,12 +106,20 @@ st.markdown(f"""
         gap: 1rem;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         transition: all 0.2s;
-        margin: 0 auto 1.5rem auto;
+        margin: 0 auto 0.5rem auto;
     }}
-    
+
     .input-circle:hover {{
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         border-color: {PRIMARY_COLOR};
+    }}
+
+    /* Helper text below input */
+    .input-helper {{
+        text-align: center;
+        color: #9CA3AF;
+        font-size: 0.8rem;
+        margin-top: 0.5rem;
     }}
     
     /* File uploader styling */
@@ -129,33 +144,45 @@ st.markdown(f"""
         gap: 0.5rem;
         white-space: nowrap;
     }}
-    
+
     .quantity-label {{
         color: #6B7280;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         font-weight: 500;
     }}
-    
+
     .stNumberInput {{
-        width: 100px !important;
+        width: 80px !important;
     }}
-    
+
     .stNumberInput > div {{
-        width: 100px !important;
+        width: 80px !important;
     }}
-    
+
     .stNumberInput>div>div>input {{
         border: 1px solid #D1D5DB !important;
-        border-radius: 8px !important;
-        padding: 0.5rem !important;
-        font-size: 0.9rem !important;
-        width: 100px !important;
+        border-radius: 6px !important;
+        padding: 0.4rem 0.5rem !important;
+        font-size: 0.85rem !important;
+        width: 80px !important;
         background: white !important;
+        text-align: center !important;
     }}
-    
+
     .stNumberInput>div>div>input:focus {{
         border-color: {PRIMARY_COLOR} !important;
-        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1) !important;
+        box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.1) !important;
+    }}
+
+    /* Hide number input buttons */
+    .stNumberInput>div>div>input::-webkit-inner-spin-button,
+    .stNumberInput>div>div>input::-webkit-outer-spin-button {{
+        -webkit-appearance: none;
+        margin: 0;
+    }}
+
+    .stNumberInput>div>div>input[type=number] {{
+        -moz-appearance: textfield;
     }}
     
     /* Chat message bubbles */
@@ -321,7 +348,57 @@ st.markdown(f"""
         margin-left: auto;
         margin-right: auto;
     }}
+
+    /* Hide the default streamlit button */
+    .generate-button {{
+        display: none !important;
+    }}
 </style>
+
+<script>
+    // Auto-submit on Enter key press when file is attached
+    document.addEventListener('DOMContentLoaded', function() {{
+        let lastFileCount = 0;
+
+        // Monitor for file uploads
+        setInterval(() => {{
+            const fileUploader = document.querySelector('[data-testid="stFileUploader"]');
+            const quantityInput = document.querySelector('.stNumberInput input');
+
+            if (fileUploader && quantityInput) {{
+                const fileItems = fileUploader.querySelectorAll('[data-testid="stFileUploaderFile"]');
+
+                if (fileItems.length > lastFileCount) {{
+                    lastFileCount = fileItems.length;
+
+                    // Trigger generation automatically when file is uploaded
+                    setTimeout(() => {{
+                        const generateButton = document.querySelector('.generate-button button');
+                        if (generateButton) {{
+                            generateButton.click();
+                        }}
+                    }}, 500);
+                }}
+            }}
+        }}, 300);
+
+        // Also listen for Enter key on quantity input
+        document.addEventListener('keydown', function(e) {{
+            if (e.key === 'Enter') {{
+                const fileUploader = document.querySelector('[data-testid="stFileUploader"]');
+                const fileItems = fileUploader?.querySelectorAll('[data-testid="stFileUploaderFile"]');
+
+                if (fileItems && fileItems.length > 0) {{
+                    e.preventDefault();
+                    const generateButton = document.querySelector('.generate-button button');
+                    if (generateButton) {{
+                        generateButton.click();
+                    }}
+                }}
+            }}
+        }});
+    }});
+</script>
 """, unsafe_allow_html=True)
 
 # ==========================================
@@ -611,7 +688,9 @@ if len(st.session_state.chat_history) > 0:
             """, unsafe_allow_html=True)
 
 # Main content area - PROPERLY CENTERED
-st.markdown('<div class="main-content">', unsafe_allow_html=True)
+has_chat = len(st.session_state.chat_history) > 0
+content_class = "main-content with-chat" if has_chat else "main-content"
+st.markdown(f'<div class="{content_class}">', unsafe_allow_html=True)
 
 # Only show heading if no chat history
 if len(st.session_state.chat_history) == 0:
@@ -620,7 +699,7 @@ if len(st.session_state.chat_history) == 0:
 # Circular input container
 st.markdown('<div class="input-circle">', unsafe_allow_html=True)
 
-col1, col2 = st.columns([4, 1])
+col1, col2 = st.columns([5, 2])
 
 with col1:
     uploaded_file = st.file_uploader("Upload", type=['pdf'], label_visibility="collapsed", key="file_upload")
@@ -633,9 +712,13 @@ with col2:
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Generate button
-st.markdown('<div style="text-align: center; margin-top: 1.5rem;">', unsafe_allow_html=True)
-generate_clicked = st.button("Generate Router", type="primary")
+# Helper text
+if len(st.session_state.chat_history) == 0:
+    st.markdown('<p class="input-helper">Upload a PDF drawing and press Enter to generate router</p>', unsafe_allow_html=True)
+
+# Generate button (hidden but functional for JavaScript trigger)
+st.markdown('<div class="generate-button">', unsafe_allow_html=True)
+generate_clicked = st.button("Generate Router", type="primary", key="generate_button")
 st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
