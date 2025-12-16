@@ -338,60 +338,75 @@ st.markdown(f"""
         display: none !important;
     }}
 
-    /* Additional button hiding rules */
+    /* Additional button hiding rules - keep clickable for JavaScript */
     button[kind="primary"] {{
-        display: none !important;
-        visibility: hidden !important;
         position: absolute !important;
         left: -9999px !important;
-        width: 0 !important;
-        height: 0 !important;
+        top: -9999px !important;
         opacity: 0 !important;
+        pointer-events: none !important;
+        z-index: -1 !important;
     }}
 </style>
 
 <script>
     // Auto-submit on Enter key press when file is attached
+    function clickGenerateButton() {{
+        // Try multiple selectors to find the button
+        const button = document.querySelector('button[data-testid="baseButton-primary"]') ||
+                      document.querySelector('button[kind="primary"]') ||
+                      document.querySelector('button.stButton button') ||
+                      Array.from(document.querySelectorAll('button')).find(btn =>
+                          btn.textContent.includes('Generate Router')
+                      );
+
+        if (button) {{
+            // Remove pointer-events restriction temporarily
+            button.style.pointerEvents = 'auto';
+            button.click();
+            // Restore restriction
+            setTimeout(() => {{
+                button.style.pointerEvents = 'none';
+            }}, 100);
+            return true;
+        }}
+        return false;
+    }}
+
     document.addEventListener('DOMContentLoaded', function() {{
         let lastFileCount = 0;
 
         // Monitor for file uploads
         setInterval(() => {{
             const fileUploader = document.querySelector('[data-testid="stFileUploader"]');
-            const quantityInput = document.querySelector('.stNumberInput input');
 
-            if (fileUploader && quantityInput) {{
+            if (fileUploader) {{
                 const fileItems = fileUploader.querySelectorAll('[data-testid="stFileUploaderFile"]');
 
-                if (fileItems.length > lastFileCount) {{
+                if (fileItems.length > lastFileCount && fileItems.length > 0) {{
                     lastFileCount = fileItems.length;
 
                     // Trigger generation automatically when file is uploaded
                     setTimeout(() => {{
-                        const generateButton = document.querySelector('button[kind="primary"]');
-                        if (generateButton) {{
-                            generateButton.click();
-                        }}
+                        clickGenerateButton();
                     }}, 500);
                 }}
             }}
         }}, 300);
 
-        // Also listen for Enter key on quantity input
+        // Listen for Enter key anywhere on the page
         document.addEventListener('keydown', function(e) {{
-            if (e.key === 'Enter') {{
+            if (e.key === 'Enter' || e.keyCode === 13) {{
                 const fileUploader = document.querySelector('[data-testid="stFileUploader"]');
                 const fileItems = fileUploader?.querySelectorAll('[data-testid="stFileUploaderFile"]');
 
                 if (fileItems && fileItems.length > 0) {{
                     e.preventDefault();
-                    const generateButton = document.querySelector('button[kind="primary"]');
-                    if (generateButton) {{
-                        generateButton.click();
-                    }}
+                    e.stopPropagation();
+                    clickGenerateButton();
                 }}
             }}
-        }});
+        }}, true); // Use capture phase
     }});
 </script>
 """, unsafe_allow_html=True)
@@ -706,8 +721,8 @@ with col2:
 if 'auto_generate' not in st.session_state:
     st.session_state.auto_generate = False
 
-# Hidden button that JavaScript can trigger
-st.markdown('<div style="display: none; visibility: hidden; position: absolute; left: -9999px; width: 0; height: 0; overflow: hidden;">', unsafe_allow_html=True)
+# Hidden button that JavaScript can trigger (positioned off-screen but still functional)
+st.markdown('<div style="position: absolute; left: -9999px; top: -9999px; opacity: 0; pointer-events: none;">', unsafe_allow_html=True)
 generate_clicked = st.button("Generate Router", type="primary", key="generate_button")
 st.markdown('</div>', unsafe_allow_html=True)
 
