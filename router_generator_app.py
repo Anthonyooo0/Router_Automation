@@ -69,12 +69,12 @@ st.markdown(f"""
     .main-content {{
         max-width: 900px;
         margin: 0 auto;
-        padding: 2rem;
+        padding-top: 6rem;
+        padding-left: 2rem;
+        padding-right: 2rem;
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        min-height: 80vh;
     }}
 
     /* When chat exists, move input to bottom */
@@ -90,36 +90,22 @@ st.markdown(f"""
         font-weight: 600;
         color: {TEXT_COLOR};
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: 3rem;
     }}
-    
-    /* Circular input container */
-    .input-circle {{
-        width: 100%;
-        max-width: 700px;
-        background: white;
-        border: 1px solid #D1D5DB;
-        border-radius: 50px;
-        padding: 0.75rem 1.5rem;
+
+    /* Input container - horizontal layout */
+    .input-container {{
         display: flex;
         align-items: center;
-        gap: 1rem;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        transition: all 0.2s;
-        margin: 0 auto 0.5rem auto;
+        justify-content: center;
+        gap: 2rem;
+        max-width: 800px;
+        margin: 0 auto;
     }}
 
-    .input-circle:hover {{
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        border-color: {PRIMARY_COLOR};
-    }}
-
-    /* Helper text below input */
-    .input-helper {{
-        text-align: center;
-        color: #9CA3AF;
-        font-size: 0.8rem;
-        margin-top: 0.5rem;
+    .file-upload-wrapper {{
+        flex: 1;
+        max-width: 500px;
     }}
     
     /* File uploader styling */
@@ -138,33 +124,38 @@ st.markdown(f"""
     }}
     
     /* Quantity input - COMPACT */
-    .quantity-container {{
+    .quantity-wrapper {{
         display: flex;
+        flex-direction: column;
         align-items: center;
         gap: 0.5rem;
-        white-space: nowrap;
     }}
 
     .quantity-label {{
         color: #6B7280;
-        font-size: 0.85rem;
+        font-size: 0.875rem;
         font-weight: 500;
+        text-align: center;
     }}
 
     .stNumberInput {{
-        width: 80px !important;
+        width: 120px !important;
     }}
 
     .stNumberInput > div {{
-        width: 80px !important;
+        width: 120px !important;
+    }}
+
+    .stNumberInput > div > div {{
+        width: 120px !important;
     }}
 
     .stNumberInput>div>div>input {{
         border: 1px solid #D1D5DB !important;
-        border-radius: 6px !important;
-        padding: 0.4rem 0.5rem !important;
-        font-size: 0.85rem !important;
-        width: 80px !important;
+        border-radius: 8px !important;
+        padding: 0.5rem !important;
+        font-size: 1rem !important;
+        width: 120px !important;
         background: white !important;
         text-align: center !important;
     }}
@@ -696,28 +687,24 @@ st.markdown(f'<div class="{content_class}">', unsafe_allow_html=True)
 if len(st.session_state.chat_history) == 0:
     st.markdown('<h1 class="welcome-heading">Import a Drawing</h1>', unsafe_allow_html=True)
 
-# Circular input container
-st.markdown('<div class="input-circle">', unsafe_allow_html=True)
+# Horizontal input container
+st.markdown('<div class="input-container">', unsafe_allow_html=True)
 
-col1, col2 = st.columns([5, 2])
+# File uploader
+st.markdown('<div class="file-upload-wrapper">', unsafe_allow_html=True)
+uploaded_file = st.file_uploader("Upload", type=['pdf'], label_visibility="collapsed", key="file_upload")
+st.markdown('</div>', unsafe_allow_html=True)
 
-with col1:
-    uploaded_file = st.file_uploader("Upload", type=['pdf'], label_visibility="collapsed", key="file_upload")
-
-with col2:
-    st.markdown('<div class="quantity-container">', unsafe_allow_html=True)
-    st.markdown('<span class="quantity-label">Quantity</span>', unsafe_allow_html=True)
-    quantity = st.number_input("Qty", min_value=1, value=50, key="quantity_input", label_visibility="collapsed")
-    st.markdown('</div>', unsafe_allow_html=True)
+# Quantity input
+st.markdown('<div class="quantity-wrapper">', unsafe_allow_html=True)
+st.markdown('<span class="quantity-label">Quantity</span>', unsafe_allow_html=True)
+quantity = st.number_input("Qty", min_value=1, value=50, key="quantity_input", label_visibility="collapsed")
+st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Helper text
-if len(st.session_state.chat_history) == 0:
-    st.markdown('<p class="input-helper">Upload a PDF drawing and press Enter to generate router</p>', unsafe_allow_html=True)
-
-# Generate button (hidden but functional for JavaScript trigger)
-st.markdown('<div class="generate-button">', unsafe_allow_html=True)
+# Generate button (completely hidden but functional for JavaScript trigger)
+st.markdown('<div class="generate-button" style="display: none !important; visibility: hidden !important; position: absolute !important; left: -9999px !important;">', unsafe_allow_html=True)
 generate_clicked = st.button("Generate Router", type="primary", key="generate_button")
 st.markdown('</div>', unsafe_allow_html=True)
 
