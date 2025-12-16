@@ -65,46 +65,97 @@ st.markdown(f"""
         height: auto;
     }}
     
-    /* Main content container */
+    /* Main content container - PROPERLY CENTERED */
     .main-content {{
         max-width: 900px;
         margin: 0 auto;
-        padding: 4rem 2rem;
+        padding: 2rem;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        min-height: 80vh;
+        min-height: calc(100vh - 100px);
     }}
     
     /* Welcome heading */
     .welcome-heading {{
-        font-size: 2rem;
+        font-size: 2.5rem;
         font-weight: 600;
         color: {TEXT_COLOR};
         text-align: center;
-        margin-bottom: 3rem;
+        margin-bottom: 2rem;
     }}
     
     /* Circular input container */
     .input-circle {{
         width: 100%;
-        max-width: 650px;
+        max-width: 700px;
         background: white;
         border: 1px solid #D1D5DB;
         border-radius: 50px;
-        padding: 1rem 1.5rem;
+        padding: 0.75rem 1.5rem;
         display: flex;
         align-items: center;
         gap: 1rem;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         transition: all 0.2s;
-        margin: 0 auto;
+        margin: 0 auto 1.5rem auto;
     }}
     
     .input-circle:hover {{
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         border-color: {PRIMARY_COLOR};
+    }}
+    
+    /* File uploader styling */
+    [data-testid="stFileUploader"] {{
+        width: 100%;
+    }}
+    
+    [data-testid="stFileUploader"] > div {{
+        padding: 0;
+        border: none;
+        background: transparent;
+    }}
+    
+    [data-testid="stFileUploader"] label {{
+        display: none;
+    }}
+    
+    /* Quantity input - COMPACT */
+    .quantity-container {{
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        white-space: nowrap;
+    }}
+    
+    .quantity-label {{
+        color: #6B7280;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }}
+    
+    .stNumberInput {{
+        width: 100px !important;
+    }}
+    
+    .stNumberInput > div {{
+        width: 100px !important;
+    }}
+    
+    .stNumberInput>div>div>input {{
+        border: 1px solid #D1D5DB !important;
+        border-radius: 8px !important;
+        padding: 0.5rem !important;
+        font-size: 0.9rem !important;
+        width: 100px !important;
+        background: white !important;
+    }}
+    
+    .stNumberInput>div>div>input:focus {{
+        border-color: {PRIMARY_COLOR} !important;
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1) !important;
     }}
     
     /* Chat message bubbles */
@@ -226,53 +277,15 @@ st.markdown(f"""
         border-radius: 50px;
         font-weight: 600;
         border: none;
-        padding: 0.75rem 2rem;
+        padding: 0.75rem 2.5rem;
         transition: all 0.2s ease;
+        font-size: 1rem;
     }}
     
     .stButton>button:hover {{
         background-color: {PRIMARY_COLOR};
         transform: translateY(-1px);
         box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
-    }}
-    
-    /* File uploader - hidden, we'll use custom */
-    [data-testid="stFileUploader"] {{
-        display: none;
-    }}
-    
-    /* Custom file upload button */
-    .upload-button {{
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 1rem;
-        background: white;
-        border: 1px solid #D1D5DB;
-        border-radius: 20px;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-size: 0.9rem;
-        color: {TEXT_COLOR};
-    }}
-    
-    .upload-button:hover {{
-        background: {SECONDARY_COLOR};
-        border-color: {PRIMARY_COLOR};
-    }}
-    
-    /* Quantity input */
-    .stNumberInput>div>div>input {{
-        border: none;
-        background: transparent;
-        padding: 0.5rem;
-        font-size: 0.9rem;
-        width: 80px;
-    }}
-    
-    .stNumberInput>div>div>input:focus {{
-        outline: none;
-        box-shadow: none;
     }}
     
     /* Success/Error boxes */
@@ -327,7 +340,6 @@ if 'quantity' not in st.session_state:
 # Sidebar with MAC Logo
 # ==========================================
 with st.sidebar:
-    # MAC Logo at top
     logo_path = "mac_logo.png"
     if os.path.exists(logo_path):
         with open(logo_path, "rb") as f:
@@ -395,7 +407,7 @@ with st.sidebar:
         """)
 
 # ==========================================
-# Knowledge Base (Embedded)
+# Knowledge Base
 # ==========================================
 KNOWLEDGE_BASE = """
 CRITICAL MANUFACTURING RULES:
@@ -598,35 +610,31 @@ if len(st.session_state.chat_history) > 0:
             </div>
             """, unsafe_allow_html=True)
 
-# Main content area
+# Main content area - PROPERLY CENTERED
 st.markdown('<div class="main-content">', unsafe_allow_html=True)
 
+# Only show heading if no chat history
 if len(st.session_state.chat_history) == 0:
-    st.markdown('<h1 class="welcome-heading">What can I help with?</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="welcome-heading">Import a Drawing</h1>', unsafe_allow_html=True)
 
 # Circular input container
 st.markdown('<div class="input-circle">', unsafe_allow_html=True)
 
-col1, col2, col3 = st.columns([1, 3, 1])
+col1, col2 = st.columns([4, 1])
 
 with col1:
-    st.markdown('<div style="display: flex; align-items: center; gap: 0.5rem;">', unsafe_allow_html=True)
     uploaded_file = st.file_uploader("Upload", type=['pdf'], label_visibility="collapsed", key="file_upload")
-    st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
-    if uploaded_file:
-        st.markdown(f'<div style="color: #6B7280; font-size: 0.9rem;">📄 {uploaded_file.name}</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div style="color: #9CA3AF; font-size: 0.9rem;">Upload a drawing to generate router</div>', unsafe_allow_html=True)
-
-with col3:
-    st.number_input("Qty", min_value=1, value=st.session_state.quantity, key="quantity_input", label_visibility="collapsed")
+    st.markdown('<div class="quantity-container">', unsafe_allow_html=True)
+    st.markdown('<span class="quantity-label">Quantity</span>', unsafe_allow_html=True)
+    quantity = st.number_input("Qty", min_value=1, value=50, key="quantity_input", label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Generate button below circle
-st.markdown('<div style="margin-top: 1.5rem; text-align: center;">', unsafe_allow_html=True)
+# Generate button
+st.markdown('<div style="text-align: center; margin-top: 1.5rem;">', unsafe_allow_html=True)
 generate_clicked = st.button("Generate Router", type="primary")
 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -639,7 +647,6 @@ if generate_clicked:
     elif not uploaded_file:
         st.error("Please upload an engineering drawing")
     else:
-        quantity = st.session_state.quantity_input
         user_message = f"Generate router for **{uploaded_file.name}** with quantity: **{quantity}**"
         st.session_state.chat_history.append({
             'role': 'user',
