@@ -344,6 +344,17 @@ st.markdown(f"""
     .generate-button {{
         display: none !important;
     }}
+
+    /* Additional button hiding rules */
+    button[kind="primary"] {{
+        display: none !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        left: -9999px !important;
+        width: 0 !important;
+        height: 0 !important;
+        opacity: 0 !important;
+    }}
 </style>
 
 <script>
@@ -364,7 +375,7 @@ st.markdown(f"""
 
                     // Trigger generation automatically when file is uploaded
                     setTimeout(() => {{
-                        const generateButton = document.querySelector('.generate-button button');
+                        const generateButton = document.querySelector('button[kind="primary"]');
                         if (generateButton) {{
                             generateButton.click();
                         }}
@@ -381,7 +392,7 @@ st.markdown(f"""
 
                 if (fileItems && fileItems.length > 0) {{
                     e.preventDefault();
-                    const generateButton = document.querySelector('.generate-button button');
+                    const generateButton = document.querySelector('button[kind="primary"]');
                     if (generateButton) {{
                         generateButton.click();
                     }}
@@ -687,24 +698,25 @@ st.markdown(f'<div class="{content_class}">', unsafe_allow_html=True)
 if len(st.session_state.chat_history) == 0:
     st.markdown('<h1 class="welcome-heading">Import a Drawing</h1>', unsafe_allow_html=True)
 
-# Horizontal input container
-st.markdown('<div class="input-container">', unsafe_allow_html=True)
+# Horizontal input container using columns
+col1, col2 = st.columns([4, 1])
 
-# File uploader
-st.markdown('<div class="file-upload-wrapper">', unsafe_allow_html=True)
-uploaded_file = st.file_uploader("Upload", type=['pdf'], label_visibility="collapsed", key="file_upload")
-st.markdown('</div>', unsafe_allow_html=True)
+with col1:
+    uploaded_file = st.file_uploader("Upload", type=['pdf'], label_visibility="collapsed", key="file_upload")
 
-# Quantity input
-st.markdown('<div class="quantity-wrapper">', unsafe_allow_html=True)
-st.markdown('<span class="quantity-label">Quantity</span>', unsafe_allow_html=True)
-quantity = st.number_input("Qty", min_value=1, value=50, key="quantity_input", label_visibility="collapsed")
-st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
+with col2:
+    st.markdown('<div style="padding-top: 0.5rem;">', unsafe_allow_html=True)
+    st.markdown('<p style="color: #6B7280; font-size: 0.875rem; font-weight: 500; text-align: center; margin-bottom: 0.5rem;">Quantity</p>', unsafe_allow_html=True)
+    quantity = st.number_input("Qty", min_value=1, value=50, key="quantity_input", label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # Generate button (completely hidden but functional for JavaScript trigger)
-st.markdown('<div class="generate-button" style="display: none !important; visibility: hidden !important; position: absolute !important; left: -9999px !important;">', unsafe_allow_html=True)
+# Using session state to track button clicks without showing the button
+if 'auto_generate' not in st.session_state:
+    st.session_state.auto_generate = False
+
+# Hidden button that JavaScript can trigger
+st.markdown('<div style="display: none; visibility: hidden; position: absolute; left: -9999px; width: 0; height: 0; overflow: hidden;">', unsafe_allow_html=True)
 generate_clicked = st.button("Generate Router", type="primary", key="generate_button")
 st.markdown('</div>', unsafe_allow_html=True)
 
