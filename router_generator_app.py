@@ -172,7 +172,7 @@ st.markdown(f"""
     /* Chat message bubbles */
     .chat-message {{
         width: 100%;
-        max-width: 800px;
+        max-width: 1200px;
         padding: 1.5rem;
         margin: 1.5rem auto;
         border-radius: 12px;
@@ -221,6 +221,7 @@ st.markdown(f"""
         overflow-x: auto;
         overflow-y: visible;
         box-sizing: border-box;
+        width: 100%;
         max-width: 100%;
     }}
 
@@ -260,6 +261,7 @@ st.markdown(f"""
         border-collapse: collapse;
         margin: 10px 0;
         font-size: 10px;
+        table-layout: auto;
     }}
 
     .router-output th, .router-output td {{
@@ -267,6 +269,8 @@ st.markdown(f"""
         padding: 4px 6px;
         text-align: left;
         font-size: 10px;
+        white-space: nowrap;
+        overflow: visible;
     }}
 
     .router-output th {{
@@ -282,6 +286,12 @@ st.markdown(f"""
     .router-output .part-info-table td {{
         text-align: left;
         font-weight: normal;
+    }}
+
+    /* Allow description column to wrap */
+    .router-output .part-info-table td:nth-child(4) {{
+        white-space: normal;
+        min-width: 200px;
     }}
 
     .router-output .operations-table th,
@@ -725,7 +735,9 @@ def csv_to_html(csv_text):
         # Data rows
         elif parts[0] and parts[0].strip() and not line.startswith(','):
             html += '<tr>'
-            for cell in parts[:10 if in_operations_table else 6]:
+            num_cols = 10 if in_operations_table else 6
+            for j in range(num_cols):
+                cell = parts[j] if j < len(parts) else ""
                 html += f'<td>{cell}</td>'
             html += '</tr>'
 
