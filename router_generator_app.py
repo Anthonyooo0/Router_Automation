@@ -214,71 +214,85 @@ st.markdown(f"""
     .router-output {{
         background: white;
         border: 2px solid #333;
-        padding: 2rem;
+        padding: 1.5rem;
         border-radius: 8px;
         font-family: Arial, sans-serif;
         margin-top: 1rem;
+        overflow-x: auto;
+        overflow-y: visible;
+        box-sizing: border-box;
+        max-width: 100%;
     }}
-    
+
     .router-header {{
         display: flex;
         justify-content: space-between;
         border-bottom: 2px solid black;
         padding-bottom: 10px;
         margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 1rem;
     }}
-    
+
     .router-logo {{
-        font-size: 48px;
+        font-size: 42px;
         font-weight: bold;
     }}
-    
+
     .router-title {{
-        font-size: 28px;
+        font-size: 24px;
         font-weight: bold;
+        flex: 1;
+        text-align: center;
     }}
-    
+
     .router-info {{
         text-align: right;
-        font-size: 12px;
+        font-size: 11px;
     }}
-    
-    table {{
+
+    .router-output table {{
         width: 100%;
         border-collapse: collapse;
-        margin: 20px 0;
+        margin: 15px 0;
+        table-layout: fixed;
+        font-size: 11px;
     }}
-    
-    th, td {{
+
+    .router-output th, .router-output td {{
         border: 1px solid black;
-        padding: 8px;
+        padding: 6px 4px;
         text-align: center;
-        font-size: 12px;
+        font-size: 11px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
     }}
-    
-    th {{
+
+    .router-output th {{
         background-color: #f0f0f0;
         font-weight: bold;
     }}
-    
+
     .totals-row {{
         background-color: #fff0f0;
         color: red;
         font-weight: bold;
     }}
-    
+
     .instruction-row {{
         font-style: italic;
         text-align: left;
         border-top: none;
     }}
-    
+
     .footer {{
         text-align: center;
-        margin-top: 30px;
+        margin-top: 20px;
         font-style: italic;
         border-top: 2px solid black;
-        padding-top: 20px;
+        padding-top: 15px;
+        font-size: 12px;
     }}
     
     /* Buttons */
