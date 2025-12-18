@@ -333,80 +333,66 @@ st.markdown(f"""
         margin-right: auto;
     }}
 
-    /* Hide the default streamlit button */
-    .generate-button {{
-        display: none !important;
+    /* Generate button container */
+    .generate-button-container {{
+        display: flex;
+        justify-content: center;
+        margin-top: 1.5rem;
+        width: 100%;
     }}
 
-    /* Additional button hiding rules - keep clickable for JavaScript */
+    /* Make the primary button visible and styled */
     button[kind="primary"] {{
-        position: absolute !important;
-        left: -9999px !important;
-        top: -9999px !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-        z-index: -1 !important;
+        background-color: {BUTTON_COLOR} !important;
+        color: white !important;
+        border-radius: 50px !important;
+        font-weight: 600 !important;
+        border: none !important;
+        padding: 0.75rem 2.5rem !important;
+        transition: all 0.2s ease !important;
+        font-size: 1rem !important;
+        cursor: pointer !important;
+        box-shadow: 0 2px 8px rgba(30, 58, 138, 0.2) !important;
+    }}
+
+    button[kind="primary"]:hover {{
+        background-color: {PRIMARY_COLOR} !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3) !important;
     }}
 </style>
 
 <script>
-    // Auto-submit on Enter key press when file is attached
+    // Utility function to click the generate button
     function clickGenerateButton() {{
-        // Try multiple selectors to find the button
         const button = document.querySelector('button[data-testid="baseButton-primary"]') ||
                       document.querySelector('button[kind="primary"]') ||
-                      document.querySelector('button.stButton button') ||
                       Array.from(document.querySelectorAll('button')).find(btn =>
                           btn.textContent.includes('Generate Router')
                       );
 
         if (button) {{
-            // Remove pointer-events restriction temporarily
-            button.style.pointerEvents = 'auto';
             button.click();
-            // Restore restriction
-            setTimeout(() => {{
-                button.style.pointerEvents = 'none';
-            }}, 100);
             return true;
         }}
         return false;
     }}
 
+    // Optional: Listen for Enter key to submit (convenience feature)
     document.addEventListener('DOMContentLoaded', function() {{
-        let lastFileCount = 0;
-
-        // Monitor for file uploads
-        setInterval(() => {{
-            const fileUploader = document.querySelector('[data-testid="stFileUploader"]');
-
-            if (fileUploader) {{
-                const fileItems = fileUploader.querySelectorAll('[data-testid="stFileUploaderFile"]');
-
-                if (fileItems.length > lastFileCount && fileItems.length > 0) {{
-                    lastFileCount = fileItems.length;
-
-                    // Trigger generation automatically when file is uploaded
-                    setTimeout(() => {{
-                        clickGenerateButton();
-                    }}, 500);
-                }}
-            }}
-        }}, 300);
-
-        // Listen for Enter key anywhere on the page
         document.addEventListener('keydown', function(e) {{
             if (e.key === 'Enter' || e.keyCode === 13) {{
                 const fileUploader = document.querySelector('[data-testid="stFileUploader"]');
                 const fileItems = fileUploader?.querySelectorAll('[data-testid="stFileUploaderFile"]');
 
+                // Only submit if a file is uploaded
                 if (fileItems && fileItems.length > 0) {{
                     e.preventDefault();
                     e.stopPropagation();
                     clickGenerateButton();
                 }}
             }}
-        }}, true); // Use capture phase
+        }}, true);
     }});
 </script>
 """, unsafe_allow_html=True)
@@ -716,14 +702,9 @@ with col2:
     # Quantity input embedded next to browse files
     quantity = st.number_input("Qty", min_value=1, value=50, key="quantity_input", label_visibility="collapsed", placeholder="Qty")
 
-# Generate button (completely hidden but functional for JavaScript trigger)
-# Using session state to track button clicks without showing the button
-if 'auto_generate' not in st.session_state:
-    st.session_state.auto_generate = False
-
-# Hidden button that JavaScript can trigger (positioned off-screen but still functional)
-st.markdown('<div style="position: absolute; left: -9999px; top: -9999px; opacity: 0; pointer-events: none;">', unsafe_allow_html=True)
-generate_clicked = st.button("Generate Router", type="primary", key="generate_button")
+# Generate Router button - visible and centered
+st.markdown('<div class="generate-button-container">', unsafe_allow_html=True)
+generate_clicked = st.button("🚀 Generate Router", type="primary", key="generate_button", use_container_width=False)
 st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
