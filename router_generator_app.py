@@ -210,12 +210,12 @@ st.markdown(f"""
         font-size: 1rem;
     }}
     
-    /* Router output styling */
+    /* Router output styling - M2M Format */
     .router-output {{
         background: white;
-        border: 2px solid #333;
+        border: 2px solid #000;
         padding: 1.5rem;
-        border-radius: 8px;
+        border-radius: 4px;
         font-family: Arial, sans-serif;
         margin-top: 1rem;
         overflow-x: auto;
@@ -225,74 +225,106 @@ st.markdown(f"""
     }}
 
     .router-header {{
-        display: flex;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: start;
         border-bottom: 2px solid black;
-        padding-bottom: 10px;
+        padding-bottom: 15px;
         margin-bottom: 20px;
-        flex-wrap: wrap;
-        gap: 1rem;
+        gap: 2rem;
     }}
 
     .router-logo {{
-        font-size: 42px;
-        font-weight: bold;
+        font-size: 48px;
+        font-weight: 900;
+        letter-spacing: -2px;
+        font-family: Arial Black, sans-serif;
     }}
 
     .router-title {{
         font-size: 24px;
         font-weight: bold;
-        flex: 1;
         text-align: center;
+        align-self: center;
     }}
 
     .router-info {{
         text-align: right;
         font-size: 11px;
+        line-height: 1.4;
+        white-space: nowrap;
     }}
 
     .router-output table {{
         width: 100%;
         border-collapse: collapse;
-        margin: 15px 0;
-        table-layout: fixed;
-        font-size: 11px;
+        margin: 10px 0;
+        font-size: 10px;
     }}
 
     .router-output th, .router-output td {{
         border: 1px solid black;
-        padding: 6px 4px;
-        text-align: center;
-        font-size: 11px;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        hyphens: auto;
+        padding: 4px 6px;
+        text-align: left;
+        font-size: 10px;
     }}
 
     .router-output th {{
-        background-color: #f0f0f0;
+        background-color: #f5f5f5;
         font-weight: bold;
+        text-align: center;
+    }}
+
+    .router-output .part-info-table {{
+        margin-bottom: 5px;
+    }}
+
+    .router-output .part-info-table td {{
+        text-align: left;
+        font-weight: normal;
+    }}
+
+    .router-output .operations-table th,
+    .router-output .operations-table td {{
+        text-align: center;
     }}
 
     .totals-row {{
-        background-color: #fff0f0;
+        background-color: transparent;
         color: red;
         font-weight: bold;
     }}
 
     .instruction-row {{
+        border: none !important;
+        border-top: 2px dashed #666 !important;
+        border-bottom: 2px dashed #666 !important;
+        padding: 6px 8px !important;
+    }}
+
+    .instruction-row td {{
+        border: none !important;
+        text-align: left !important;
         font-style: italic;
-        text-align: left;
-        border-top: none;
+        font-size: 10px;
     }}
 
     .footer {{
         text-align: center;
-        margin-top: 20px;
+        margin-top: 25px;
+        padding-top: 20px;
         font-style: italic;
-        border-top: 2px solid black;
-        padding-top: 15px;
         font-size: 12px;
+    }}
+
+    .footer-line {{
+        border-top: 2px solid black;
+        margin: 15px 0;
+    }}
+
+    .footer-text {{
+        margin-top: 15px;
+        font-style: italic;
     }}
     
     /* Buttons */
@@ -621,57 +653,89 @@ Remember:
         return f"Error: {str(e)}\n\nPlease check:\n- API key is valid\n- PDF is readable\n- Network connection is stable"
 
 def csv_to_html(csv_text):
-    """Convert CSV to HTML table for display"""
+    """Convert CSV to HTML table for display - M2M Format"""
     lines = csv_text.strip().split('\n')
     html = '<div class="router-output">'
-    
+
+    in_operations_table = False
+
     for i, line in enumerate(lines):
         parts = line.split(',')
-        
+
+        # Header line - MAC logo, title, page info
         if i == 0:
+            page_info = parts[9] if len(parts) > 9 else ""
             html += f'''
             <div class="router-header">
                 <div class="router-logo">{parts[0]}</div>
                 <div class="router-title">{parts[5] if len(parts) > 5 else ""}</div>
-                <div class="router-info">{parts[9] if len(parts) > 9 else ""}</div>
+                <div class="router-info">{page_info}</div>
             </div>
             '''
+        # Date and Time lines
         elif i in [1, 2]:
-            html += f'<div style="text-align: right; font-size: 12px;">{parts[8] if len(parts) > 8 else ""}</div>'
+            date_time_info = parts[8] if len(parts) > 8 else ""
+            if date_time_info:
+                existing_info = ""
+                # Append to router-info div (hacky but works)
+                html = html.replace('</div>\n            </div>',
+                                   f'<br>{date_time_info}</div>\n            </div>')
+
+        # Part info table header
         elif 'Facility,Part Number' in line:
-            html += '<table><thead><tr>'
+            html += '<table class="part-info-table"><thead><tr>'
             for cell in parts[:6]:
-                if cell:
+                if cell.strip():
                     html += f'<th>{cell}</th>'
             html += '</tr></thead><tbody>'
+
+        # Operations table header
         elif 'Op,Work Center' in line:
-            html += '</tbody></table><table><thead><tr>'
+            html += '</tbody></table><table class="operations-table"><thead><tr>'
             for cell in parts[:10]:
-                if cell:
+                if cell.strip():
                     html += f'<th>{cell}</th>'
             html += '</tr></thead><tbody>'
+            in_operations_table = True
+
+        # Totals rows
         elif line.startswith('Totals'):
             html += '<tr class="totals-row">'
             for j, cell in enumerate(parts[:10]):
                 if j == 0:
-                    html += f'<td colspan="4"><strong>{cell}</strong></td>'
-                elif cell:
+                    html += f'<td colspan="2"><strong>{cell}</strong></td>'
+                elif cell.strip():
                     html += f'<td><strong>{cell}</strong></td>'
+                else:
+                    html += '<td></td>'
             html += '</tr>'
+
+        # End of Report
         elif 'End of Report' in line:
-            html += '</tbody></table><div class="footer">'
-            html += '<div style="font-size: 14px; font-weight: bold; margin-bottom: 10px;">End of Report</div>'
-        elif i == len(lines) - 1:
-            html += f'<div>{parts[5] if len(parts) > 5 else ""}</div></div>'
+            html += '</tbody></table>'
+            html += '<div class="footer-line"></div>'
+            html += '<div class="footer"><strong>End of Report</strong></div>'
+
+        # Footer message (last line)
+        elif i == len(lines) - 1 and len(parts) > 5:
+            footer_msg = parts[5] if parts[5] else ""
+            if footer_msg:
+                html += f'<div class="footer-text">{footer_msg}</div>'
+
+        # Data rows
         elif parts[0] and parts[0].strip() and not line.startswith(','):
             html += '<tr>'
-            for cell in parts[:10]:
+            for cell in parts[:10 if in_operations_table else 6]:
                 html += f'<td>{cell}</td>'
             html += '</tr>'
-        elif line.startswith(',') and parts[1]:
-            html += '<tr class="instruction-row"><td></td>'
-            html += f'<td colspan="9" style="text-align: left; font-style: italic;">{parts[1]}</td></tr>'
-    
+
+        # Instruction rows (start with comma)
+        elif line.startswith(',') and len(parts) > 1 and parts[1].strip():
+            html += '<tr class="instruction-row">'
+            colspan = "10" if in_operations_table else "6"
+            html += f'<td colspan="{colspan}">{parts[1]}</td>'
+            html += '</tr>'
+
     html += '</div>'
     return html
 
