@@ -172,7 +172,7 @@ st.markdown(f"""
     /* Chat message bubbles */
     .chat-message {{
         width: 100%;
-        max-width: 1200px;
+        max-width: 800px;
         padding: 1.5rem;
         margin: 1.5rem auto;
         border-radius: 12px;
@@ -221,7 +221,6 @@ st.markdown(f"""
         overflow-x: auto;
         overflow-y: visible;
         box-sizing: border-box;
-        width: 100%;
         max-width: 100%;
     }}
 
@@ -261,7 +260,6 @@ st.markdown(f"""
         border-collapse: collapse;
         margin: 10px 0;
         font-size: 10px;
-        table-layout: auto;
     }}
 
     .router-output th, .router-output td {{
@@ -269,8 +267,6 @@ st.markdown(f"""
         padding: 4px 6px;
         text-align: left;
         font-size: 10px;
-        white-space: nowrap;
-        overflow: visible;
     }}
 
     .router-output th {{
@@ -286,12 +282,6 @@ st.markdown(f"""
     .router-output .part-info-table td {{
         text-align: left;
         font-weight: normal;
-    }}
-
-    /* Allow description column to wrap */
-    .router-output .part-info-table td:nth-child(4) {{
-        white-space: normal;
-        min-width: 200px;
     }}
 
     .router-output .operations-table th,
@@ -502,7 +492,7 @@ with st.sidebar:
     st.markdown("---")
     
     st.markdown("### Model Information")
-    st.info("**Gemini 2.0 Flash Experimental**\n\nFREE for 1,500 requests/day\nFast and accurate")
+    st.info("**Gemini 3.0 Flash Experimental**\n\nFREE for 1,500 requests/day\nFast and accurate")
     
     st.markdown("---")
     
@@ -609,39 +599,43 @@ CRITICAL RULES:
 3. Simple lathe parts = 2-3 min/piece MAX (if >5 min YOU'RE WRONG)
 4. Use examples as baseline for times
 5. Match instruction templates exactly
+6. DESCRIPTION FORMATTING: Always put the complete description in the Description field (e.g., "SLEEVE WIPING CAP" as one entry, not split)
 
 OUTPUT: Generate M2M Standard Routing Summary in CSV format.
 
 CSV STRUCTURE (output EXACTLY this format):
-Line 1: MAC,,,,,Standard Routing Summary,,,,Page : 1 of 1
-Line 2: ,,,,,,,,Date : {datetime.now().strftime('%m/%d/%Y')}
-Line 3: ,,,,,,,,Time : {datetime.now().strftime('%I:%M:%S %p')} EST
-Line 4: ,,,,,,,,
+Line 1: MAC,,,,,Standard Routing Summary,,,,,Page : 1 of 1
+Line 2: ,,,,,,,,,Date : {datetime.now().strftime('%m/%d/%Y')}
+Line 3: ,,,,,,,,,Time : {datetime.now().strftime('%I:%M:%S %p')} EST
+Line 4: ,,,,,,,,,
 Line 5: Facility,Part Number,Rev,Description,Unit of Measure,Standard Process Qty,,,
-Line 6: Default,[PART# from drawing],0,[DESCRIPTION from drawing],EA,{quantity}.00000,,,
+Line 6: Default,[PART# from drawing],0,[COMPLETE DESCRIPTION - combine all description words into single field separated by spaces],EA,{quantity}.00000,,,
 Line 7-8: Empty rows (just commas)
-Line 9: Op,Work Center,,Operation Qty,Setup Hours,Production Hours,Move Hours,Sub-Contract Costs,Other Costs,Standard Cost/Operation
+Line 9: Op,Work Center,Operation Description,Operation Qty,Setup Hours,Production Hours,Move Hours,Sub-Contract Costs,Other Costs,Standard Cost/Operation
 Then for each operation (2 lines):
   Data row: [OP#],[CODE],[DESC],{quantity}.0000,[SETUP],[RUN],0.00,0.00,0.00,0.00
-  Instruction row: ,[INSTRUCTION],,,,,,,,
-  Empty row: ,,,,,,,,
+  Instruction row: ,[INSTRUCTION],,,,,,,,,
+  Empty row: ,,,,,,,,,
 After all operations:
   Totals,,,,[TOTAL SETUP],[TOTAL RUN],0.00,0.00,0.00,"$ 0.00"
   Totals per Unit,,,,[SETUP÷{quantity}],[RUN÷{quantity}],0.00,0.00,0.00,$ 0.00
   Empty rows
-  ,,,,,End of Report,,,,
+  ,,,,,,End of Report,,,,,
   Empty row
-  ,,,,,This report was requested by MAC ROUTER GENERATOR,,,,
+  ,,,,,,This report was requested by MAC ROUTER GENERATOR,,,,,
 
 Remember:
 - Read part number and description from the drawing title block
+- IMPORTANT: The Description field must contain the COMPLETE description as a single entry (e.g., "SLEEVE WIPING CAP" not split across fields)
+- Unit of Measure must be "EA" 
+- Standard Process Qty must be the quantity value {quantity}.00000
 - Calculate run hours: (minutes per piece × {quantity}) ÷ 60
 - Keep operations simple and realistic
 - Output ONLY the CSV (no markdown, no code blocks, no explanation)
 """
         
         model = genai.GenerativeModel(
-            'gemini-2.0-flash-exp',
+            'gemini-3-flash-preview',
             generation_config={
                 "temperature": 0.1,
                 "top_p": 0.95,
@@ -702,7 +696,7 @@ def csv_to_html(csv_text):
         # Operations table header
         elif 'Op,Work Center' in line:
             html += '</tbody></table><table class="operations-table"><thead><tr>'
-            for cell in parts[:10]:
+            for cell in parts[:11]:  # Now 11 columns instead of 10
                 if cell.strip():
                     html += f'<th>{cell}</th>'
             html += '</tr></thead><tbody>'
@@ -711,10 +705,8 @@ def csv_to_html(csv_text):
         # Totals rows
         elif line.startswith('Totals'):
             html += '<tr class="totals-row">'
-            for j, cell in enumerate(parts[:10]):
-                if j == 0:
-                    html += f'<td colspan="2"><strong>{cell}</strong></td>'
-                elif cell.strip():
+            for j, cell in enumerate(parts[:11]):  # Now 11 columns
+                if cell.strip():
                     html += f'<td><strong>{cell}</strong></td>'
                 else:
                     html += '<td></td>'
@@ -735,16 +727,14 @@ def csv_to_html(csv_text):
         # Data rows
         elif parts[0] and parts[0].strip() and not line.startswith(','):
             html += '<tr>'
-            num_cols = 10 if in_operations_table else 6
-            for j in range(num_cols):
-                cell = parts[j] if j < len(parts) else ""
+            for cell in parts[:11 if in_operations_table else 6]:  # Now 11 columns for operations
                 html += f'<td>{cell}</td>'
             html += '</tr>'
 
         # Instruction rows (start with comma)
         elif line.startswith(',') and len(parts) > 1 and parts[1].strip():
             html += '<tr class="instruction-row">'
-            colspan = "10" if in_operations_table else "6"
+            colspan = "11" if in_operations_table else "6"  # Now colspan 11
             html += f'<td colspan="{colspan}">{parts[1]}</td>'
             html += '</tr>'
 
@@ -794,7 +784,7 @@ with col2:
 
 # Generate Router button - visible and centered
 st.markdown('<div class="generate-button-container">', unsafe_allow_html=True)
-generate_clicked = st.button("🚀 Generate Router", type="primary", key="generate_button", use_container_width=False)
+generate_clicked = st.button("Generate Router", type="primary", key="generate_button", use_container_width=False)
 st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
@@ -855,6 +845,6 @@ if st.session_state.router_generated and st.session_state.router_csv:
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #9CA3AF; font-size: 0.875rem; padding: 1.5rem;">
-    <strong>MAC Products</strong> • Router Generator v1.0 • Powered by Google Gemini 2.0 Flash
+    <strong>MAC Products</strong> • Router Generator v1.0 • Powered by Google Gemini 3 Flash Preview
 </div>
 """, unsafe_allow_html=True)
