@@ -217,11 +217,12 @@ st.markdown(f"""
         padding: 1.5rem;
         border-radius: 4px;
         font-family: Arial, sans-serif;
-        margin-top: 1rem;
+        margin: 1rem auto;
         overflow-x: auto;
         overflow-y: visible;
         box-sizing: border-box;
-        max-width: 100%;
+        max-width: 1050px;
+        width: 1050px;
     }}
 
     .router-header {{
@@ -491,8 +492,26 @@ with st.sidebar:
     
     st.markdown("---")
     
-    st.markdown("### Model Information")
-    st.info("**Gemini 3.0 Flash Experimental**\n\nFREE for 1,500 requests/day\nFast and accurate")
+    st.markdown("### Model Settings")
+    
+    # Gemini model selector
+    gemini_models = [
+        "gemini-3-flash-preview",
+        "gemini-3-pro", 
+        "gemini-2.0-flash-exp",
+        "gemini-2.0-flash",
+        "gemini-1.5-pro",
+        "gemini-1.5-flash"
+    ]
+    
+    selected_model = st.selectbox(
+        "Select Gemini Model",
+        gemini_models,
+        index=0,
+        help="Choose the Gemini model for router generation"
+    )
+    
+    st.info(f"**{selected_model}**\n\nFREE for 1,500 requests/day")
     
     st.markdown("---")
     
@@ -581,7 +600,7 @@ Example: Sheet Metal with Bends (Z005002A019) - 30 pieces
 # ==========================================
 # Router Generation Function
 # ==========================================
-def generate_router_with_gemini(pdf_file, quantity, api_key):
+def generate_router_with_gemini(pdf_file, quantity, api_key, model_name="gemini-3-flash-preview"):
     """Call Gemini API to generate router"""
     try:
         genai.configure(api_key=api_key)
@@ -635,7 +654,7 @@ Remember:
 """
         
         model = genai.GenerativeModel(
-            'gemini-3-flash-preview',
+            model_name,
             generation_config={
                 "temperature": 0.1,
                 "top_p": 0.95,
@@ -658,6 +677,7 @@ Remember:
 
 def csv_to_html(csv_text):
     """Convert CSV to HTML table for display - M2M Format"""
+    import re
     lines = csv_text.strip().split('\n')
     html = '<div class="router-output">'
 
@@ -745,65 +765,79 @@ def csv_to_html(csv_text):
 # Main Interface
 # ==========================================
 
-# Show chat history if exists
-if len(st.session_state.chat_history) > 0:
-    for message in st.session_state.chat_history:
-        if message['role'] == 'user':
-            st.markdown(f"""
-            <div class="user-message chat-message">
-                <div class="message-role">You</div>
-                <div class="message-content">{message['content']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div class="assistant-message chat-message">
-                <div class="message-role">MAC AI Assistant</div>
-                <div class="message-content">{message['content']}</div>
-            </div>
-            """, unsafe_allow_html=True)
+# Load MAC logo for chat avatars
+def load_logo_as_base64():
+    """Load MAC logo from same directory as script and convert to base64"""
+    try:
+        import os
+        script_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
+        logo_path = os.path.join(script_dir, "mac_logo.png")
+        
+        if not os.path.exists(logo_path):
+            logo_path = "mac_logo.png"
+        
+        with open(logo_path, "rb") as f:
+            logo_bytes = f.read()
+        logo_b64 = base64.b64encode(logo_bytes).decode()
+        return f"data:image/png;base64,{logo_b64}"
+    except Exception as e:
+        return None
 
-# Main content area - PROPERLY CENTERED
-has_chat = len(st.session_state.chat_history) > 0
-content_class = "main-content with-chat" if has_chat else "main-content"
-st.markdown(f'<div class="{content_class}">', unsafe_allow_html=True)
+# Display chat history using st.chat_message
+logo_b64 = load_logo_as_base64()
 
-# Only show heading if no chat history
-if len(st.session_state.chat_history) == 0:
-    st.markdown('<h1 class="welcome-heading">Import a Drawing</h1>', unsafe_allow_html=True)
-
-# File uploader and quantity in one line
-col1, col2 = st.columns([5, 1])
-
-with col1:
-    uploaded_file = st.file_uploader("Upload", type=['pdf'], label_visibility="collapsed", key="file_upload")
-
-with col2:
-    # Quantity input embedded next to browse files
-    quantity = st.number_input("Qty", min_value=1, value=50, key="quantity_input", label_visibility="collapsed", placeholder="Qty")
-
-# Generate Router button - visible and centered
-st.markdown('<div class="generate-button-container">', unsafe_allow_html=True)
-generate_clicked = st.button("Generate Router", type="primary", key="generate_button", use_container_width=False)
-st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Handle generation
-if generate_clicked:
-    if not api_key:
-        st.error("Please enter your Gemini API key in the sidebar")
-    elif not uploaded_file:
-        st.error("Please upload an engineering drawing")
+for message in st.session_state.chat_history:
+    # Use MAC logo for both user and assistant if available
+    if logo_b64:
+        with st.chat_message(message['role'], avatar=logo_b64):
+            st.markdown(message['content'], unsafe_allow_html=True)
     else:
-        user_message = f"Generate router for **{uploaded_file.name}** with quantity: **{quantity}**"
+        with st.chat_message(message['role']):
+            st.markdown(message['content'], unsafe_allow_html=True)
+
+# Chat input with file attachment
+if prompt := st.chat_input("Attach a PDF drawing and enter quantity...", key="chat_input", accept_file=True):
+    
+    # Check if user attached a file
+    has_file = hasattr(prompt, 'files') and prompt.files
+    user_text = prompt.text if hasattr(prompt, 'text') else str(prompt)
+    
+    # Extract quantity from text
+    quantity = None
+    try:
+        import re
+        numbers = re.findall(r'\d+', user_text)
+        if numbers:
+            quantity = int(numbers[0])
+    except:
+        pass
+    
+    if has_file and quantity:
+        # User uploaded PDF AND provided quantity
+        pdf_file = prompt.files[0]
+        pdf_name = pdf_file.name
+        
+        # Check if API key is configured
+        if not api_key:
+            st.session_state.chat_history.append({
+                'role': 'user',
+                'content': f"Uploaded: **{pdf_name}** | Quantity: **{quantity}**"
+            })
+            st.session_state.chat_history.append({
+                'role': 'assistant',
+                'content': "⚠️ Please enter your Gemini API key in the sidebar to generate routers."
+            })
+            st.rerun()
+        
+        # Add user message
         st.session_state.chat_history.append({
             'role': 'user',
-            'content': user_message
+            'content': f"Uploaded: **{pdf_name}** | Quantity: **{quantity}**"
         })
         
+        # Generate router
         with st.spinner("Analyzing drawing and generating router..."):
-            router_csv = generate_router_with_gemini(uploaded_file, quantity, api_key)
+            router_csv = generate_router_with_gemini(pdf_file, quantity, api_key, selected_model)
             st.session_state.router_csv = router_csv
             st.session_state.router_generated = True
             
@@ -811,8 +845,36 @@ if generate_clicked:
             
             st.session_state.chat_history.append({
                 'role': 'assistant',
-                'content': f"<strong>Router generated successfully</strong><br><br>{html_output}"
+                'content': f"<strong>Router Generated Successfully</strong><br><br>{html_output}"
             })
+        
+        st.rerun()
+    
+    elif has_file and not quantity:
+        # Has file but no quantity
+        st.session_state.chat_history.append({
+            'role': 'user',
+            'content': f"Uploaded: **{prompt.files[0].name}**"
+        })
+        
+        st.session_state.chat_history.append({
+            'role': 'assistant',
+            'content': "Please include the production quantity in your message (e.g., 'Generate router for 50 pieces')."
+        })
+        
+        st.rerun()
+    
+    else:
+        # Normal message or request
+        st.session_state.chat_history.append({
+            'role': 'user',
+            'content': user_text
+        })
+        
+        st.session_state.chat_history.append({
+            'role': 'assistant',
+            'content': "Please attach a PDF engineering drawing and include the quantity in your message. For example: 'Generate router for 50 pieces' (then attach the PDF)."
+        })
         
         st.rerun()
 
