@@ -9,6 +9,47 @@ from datetime import datetime
 import base64
 import io
 import os
+import re
+
+# ==========================================
+# HTML Cleaning Utility
+# ==========================================
+def clean_html_from_csv(csv_text):
+    """
+    Aggressively remove ALL HTML tags and artifacts from CSV text.
+    This fixes the issue where Gemini outputs HTML formatting in CSV data.
+    """
+    if not csv_text:
+        return csv_text
+
+    # Remove all HTML tags (including malformed ones with spaces)
+    # Pattern matches: <tag>, < tag>, <tag >, < /tag>, </tag >, etc.
+    csv_text = re.sub(r'<\s*/?\s*\w+[^>]*\s*/?>', '', csv_text)
+
+    # Remove any remaining angle bracket patterns that look like HTML
+    csv_text = re.sub(r'<\s*/?\s*(strong|td|tr|th|table|div|span|br|p|b|i|em)[^>]*>', '', csv_text, flags=re.IGNORECASE)
+
+    # Remove HTML entities
+    csv_text = re.sub(r'&[a-zA-Z]+;', '', csv_text)
+    csv_text = re.sub(r'&#\d+;', '', csv_text)
+
+    # Remove class attributes that might have leaked
+    csv_text = re.sub(r'\s*class\s*=\s*["\'][^"\']*["\']', '', csv_text)
+
+    # Clean up any double/triple commas that might result from removed content
+    # But preserve intentional empty cells (single commas)
+    csv_text = re.sub(r',{3,}', ',,', csv_text)
+
+    # Clean up extra whitespace within cells but preserve structure
+    lines = csv_text.split('\n')
+    cleaned_lines = []
+    for line in lines:
+        # Split by comma, clean each cell, rejoin
+        cells = line.split(',')
+        cleaned_cells = [cell.strip() for cell in cells]
+        cleaned_lines.append(','.join(cleaned_cells))
+
+    return '\n'.join(cleaned_lines)
 
 # ==========================================
 # Page Configuration
@@ -646,11 +687,18 @@ After all operations:
 Remember:
 - Read part number and description from the drawing title block
 - IMPORTANT: The Description field must contain the COMPLETE description as a single entry (e.g., "SLEEVE WIPING CAP" not split across fields)
-- Unit of Measure must be "EA" 
+- Unit of Measure must be "EA"
 - Standard Process Qty must be the quantity value {quantity}.00000
 - Calculate run hours: (minutes per piece × {quantity}) ÷ 60
 - Keep operations simple and realistic
 - Output ONLY the CSV (no markdown, no code blocks, no explanation)
+
+CRITICAL - NO HTML TAGS:
+- DO NOT use <strong>, <td>, <tr>, <th>, <table>, or ANY HTML tags
+- DO NOT use HTML entities like &nbsp; or &#160;
+- Output PLAIN TEXT CSV only - just commas and values
+- The Totals row should be: Totals,,,,2.25,0.50,0.00,0.00,0.00,$ 0.00
+- NOT: Totals,,,,<strong>2.25</strong>,<strong>0.50</strong>...
 """
         
         model = genai.GenerativeModel(
@@ -665,11 +713,14 @@ Remember:
         
         uploaded = genai.upload_file(io.BytesIO(pdf_bytes), mime_type='application/pdf')
         response = model.generate_content([uploaded, prompt], request_options={"timeout": 60})
-        
+
         csv_text = response.text.strip()
         if '```' in csv_text:
             csv_text = csv_text.split('```csv')[-1].split('```')[0].strip()
-        
+
+        # CRITICAL: Clean any HTML tags that Gemini might have added
+        csv_text = clean_html_from_csv(csv_text)
+
         return csv_text
         
     except Exception as e:
@@ -677,7 +728,20 @@ Remember:
 
 def csv_to_html(csv_text):
     """Convert CSV to HTML table for display - M2M Format"""
-    import re
+
+    def clean_cell(cell):
+        """Remove any HTML tags from a cell value - safety net"""
+        if not cell:
+            return cell
+        # Remove all HTML tags
+        cleaned = re.sub(r'<[^>]+>', '', str(cell))
+        # Remove HTML entities
+        cleaned = re.sub(r'&[a-zA-Z]+;', '', cleaned)
+        cleaned = re.sub(r'&#\d+;', '', cleaned)
+        # Remove quotes that might wrap values
+        cleaned = cleaned.strip().strip('"').strip("'")
+        return cleaned
+
     lines = csv_text.strip().split('\n')
     html = '<div class="router-output">'
 
@@ -685,6 +749,8 @@ def csv_to_html(csv_text):
 
     for i, line in enumerate(lines):
         parts = line.split(',')
+        # Clean all parts upfront
+        parts = [clean_cell(p) for p in parts]
 
         # Header line - MAC logo, title, page info
         if i == 0:
@@ -700,13 +766,12 @@ def csv_to_html(csv_text):
         elif i in [1, 2]:
             date_time_info = parts[8] if len(parts) > 8 else ""
             if date_time_info:
-                existing_info = ""
                 # Append to router-info div (hacky but works)
                 html = html.replace('</div>\n            </div>',
                                    f'<br>{date_time_info}</div>\n            </div>')
 
         # Part info table header
-        elif 'Facility,Part Number' in line:
+        elif 'Facility' in line and 'Part Number' in line:
             html += '<table class="part-info-table"><thead><tr>'
             for cell in parts[:6]:
                 if cell.strip():
@@ -714,7 +779,7 @@ def csv_to_html(csv_text):
             html += '</tr></thead><tbody>'
 
         # Operations table header
-        elif 'Op,Work Center' in line:
+        elif 'Op' in line and 'Work Center' in line:
             html += '</tbody></table><table class="operations-table"><thead><tr>'
             for cell in parts[:11]:  # Now 11 columns instead of 10
                 if cell.strip():
@@ -722,8 +787,8 @@ def csv_to_html(csv_text):
             html += '</tr></thead><tbody>'
             in_operations_table = True
 
-        # Totals rows
-        elif line.startswith('Totals'):
+        # Totals rows (handles both "Totals" and "Totals per Unit")
+        elif parts[0].strip().startswith('Totals'):
             html += '<tr class="totals-row">'
             for j, cell in enumerate(parts[:11]):  # Now 11 columns
                 if cell.strip():
