@@ -9,47 +9,7 @@ from datetime import datetime
 import base64
 import io
 import os
-import re
-
-# ==========================================
-# HTML Cleaning Utility
-# ==========================================
-def clean_html_from_csv(csv_text):
-    """
-    Aggressively remove ALL HTML tags and artifacts from CSV text.
-    This fixes the issue where Gemini outputs HTML formatting in CSV data.
-    """
-    if not csv_text:
-        return csv_text
-
-    # Remove all HTML tags (including malformed ones with spaces)
-    # Pattern matches: <tag>, < tag>, <tag >, < /tag>, </tag >, etc.
-    csv_text = re.sub(r'<\s*/?\s*\w+[^>]*\s*/?>', '', csv_text)
-
-    # Remove any remaining angle bracket patterns that look like HTML
-    csv_text = re.sub(r'<\s*/?\s*(strong|td|tr|th|table|div|span|br|p|b|i|em)[^>]*>', '', csv_text, flags=re.IGNORECASE)
-
-    # Remove HTML entities
-    csv_text = re.sub(r'&[a-zA-Z]+;', '', csv_text)
-    csv_text = re.sub(r'&#\d+;', '', csv_text)
-
-    # Remove class attributes that might have leaked
-    csv_text = re.sub(r'\s*class\s*=\s*["\'][^"\']*["\']', '', csv_text)
-
-    # Clean up any double/triple commas that might result from removed content
-    # But preserve intentional empty cells (single commas)
-    csv_text = re.sub(r',{3,}', ',,', csv_text)
-
-    # Clean up extra whitespace within cells but preserve structure
-    lines = csv_text.split('\n')
-    cleaned_lines = []
-    for line in lines:
-        # Split by comma, clean each cell, rejoin
-        cells = line.split(',')
-        cleaned_cells = [cell.strip() for cell in cells]
-        cleaned_lines.append(','.join(cleaned_cells))
-
-    return '\n'.join(cleaned_lines)
+import csv
 
 # ==========================================
 # Page Configuration
@@ -589,53 +549,115 @@ with st.sidebar:
 # Knowledge Base
 # ==========================================
 KNOWLEDGE_BASE = """
-CRITICAL MANUFACTURING RULES:
+⚠️ CRITICAL: MOST MAC PARTS USE ONLY 2 OPERATIONS ⚠️
+Review the 14 real examples below - notice that simple parts rarely need more than 2 operations!
 
-Setup Times (ALWAYS use these):
-- SAW: 0.25 hrs
-- WATERJT: 0.50 hrs
-- BEND: 0.50-2.00 hrs
-- CNC-L: 2.00 hrs (ALWAYS 2.00, never 1.00)
+REAL ROUTER EXAMPLES FROM THE SHOP:
+
+MACHINED PARTS (Simple Lathe - THE BASELINE):
+1. Z110001B045 - Sleeve Wiping Cap (115 pcs) - 2 OPERATIONS
+   Op 10: SAW - Setup: 0.25 hrs, Run: 0.03 hrs (0.5 min/pc)
+   Op 20: CNC-L - Setup: 2.00 hrs, Run: 3.83 hrs (2 min/pc)
+   Instruction: "CUT MATERIAL TO 36" / "MACHINE PART PER THE DWG AND DEBURR."
+
+2. Z110001B046 - Sleeve Wiping Tube (23 pcs) - 2 OPERATIONS
+   Op 10: SAW - Setup: 0.25 hrs, Run: 0.77 hrs (2 min/pc)
+   Op 20: CNC-L - Setup: 2.00 hrs, Run: 0.77 hrs (2 min/pc)
+   Instruction: "CUT MATERIAL TO LENGTH PER THE DWG." / "MACHINE PART PER THE DWG AND DEBURR."
+
+3. Z110001B037 - Sleeve Disc (550 pcs) - 3 OPERATIONS (Complex with plating)
+   Op 10: SAW - Setup: 0.25 hrs, Run: 4.58 hrs (0.5 min/pc)
+   Op 20: CNC-L - Setup: 2.00 hrs, Run: 18.33 hrs (2 min/pc)
+   Op 30: SUB-PL - Setup: 0.00 hrs, Run: 0.00 hrs - PLATE, OUTSIDE VENDOR, ZINC PLATE
+   Instruction: "CUT MATERIAL TO LENGTH PER THE DWG." / "MACHINE PART PER THE DWG AND DEBURR." / "PLATE, OUTSIDE VENDOR, ZINC PLATE"
+
+SHEET METAL (Simple - 2 Operations):
+4. Z005002A019 - Position Holder Bracket (30 pcs) - 2 OPERATIONS
+   Op 10: WATERJT - Setup: 0.50 hrs, Run: 1.50 hrs (3 min/pc)
+   Op 20: BEND - Setup: 0.50 hrs, Run: 0.38 hrs (0.76 min/pc)
+   Instruction: "VETTED S.O. 04/08/25 CUT OUT PER THE DWG AND DEBURR." / "BEND PART TO THE DWG."
+
+5. Z005002C026 - Side Door (10 pcs) - 2 OPERATIONS
+   Op 10: WATERJT - Setup: 0.50 hrs, Run: 2.00 hrs (12 min/pc - larger part)
+   Op 20: BEND - Setup: 2.00 hrs (complex bends), Run: 0.50 hrs (3 min/pc)
+
+6. Z110001D007 - Clamp Swivel (50 pcs) - 2 OPERATIONS
+   Op 10: WATERJT - Setup: 0.50 hrs, Run: 12.50 hrs (15 min/pc - thick stainless)
+   Op 20: CNC-M - Setup: 2.00 hrs, Run: 6.25 hrs (7.5 min/pc)
+
+7. Z110001D005 - Latch Receiver (30 pcs) - 2 OPERATIONS
+   Op 10: WATERJT - Setup: 0.50 hrs, Run: 6.00 hrs (12 min/pc)
+   Op 20: CNC-M - Setup: 1.50 hrs, Run: 2.00 hrs (4 min/pc)
+
+8. TS01000B072-1 - Slide Plate (40 pcs) - 2 OPERATIONS
+   Op 10: WATERJT - Setup: 0.50 hrs, Run: 3.33 hrs (5 min/pc)
+   Op 20: CNC-M - Setup: 1.50 hrs, Run: 3.33 hrs (5 min/pc)
+
+SHEET METAL (Single Operation):
+9. Z005002A017 - Lifting Plate (20 pcs) - 1 OPERATION ONLY
+   Op 10: WATERJT - Setup: 0.50 hrs, Run: 1.00 hrs (3 min/pc)
+   Instruction: "VETTED S.O. 04/08/25 CUT OUT PER THE DWG AND DEBURR."
+
+10. Z110001B034 - Gasket (200 pcs) - 1 OPERATION ONLY
+    Op 10: WATERJT - Setup: 0.50 hrs, Run: 10.00 hrs (3 min/pc)
+
+WELDMENTS (Simple - 2 Operations):
+11. TS01000B086 - Spray Manifold Weldment (12 pcs) - 2 OPERATIONS
+    Op 10: WELD - Setup: 3.00 hrs, Run: 4.00 hrs (20 min/pc)
+    Op 20: SUB-PL - Setup: 0.00 hrs, Run: 0.00 hrs - PLATE, OUTSIDE VENDOR, ZINC PLATE
+
+12. TS01000C047 - Control Panel Door (6 pcs) - 2 OPERATIONS
+    Op 10: WELD - Setup: 1.00 hrs, Run: 2.00 hrs (20 min/pc)
+    Op 20: PAINT - Setup: 0.50 hrs, Run: 0.00 hrs, Move: 4.00 hrs - PAINT PARTS PER THE DWG.
+
+COMPLEX PARTS (3+ Operations - RARE):
+13. Z110001A030 - Contact Plate (200 pcs) - 3 OPERATIONS
+    Op 10: WATERJT - Setup: 0.50 hrs, Run: 13.33 hrs (4 min/pc)
+    Op 20: ASSY-PP - Setup: 0.50 hrs, Run: 6.67 hrs (2 min/pc) - TAP HOLES
+    Op 30: SUB-PL - Setup: 0.00 hrs, Run: 0.00 hrs - PLATE, OUTSIDE VENDOR, TIN PLATE
+
+14. 2651C2858-1 - Complex Weldment Assembly (1 pc) - 4 OPERATIONS
+    Op 10: WELD - Setup: 3.00 hrs, Run: 5.00 hrs (5 hrs for 1 pc)
+    Op 20: CNC-M - Setup: 2.00 hrs, Run: 2.00 hrs (2 hrs for 1 pc)
+    Op 30: WELD - Setup: 3.00 hrs, Run: 3.00 hrs (3 hrs for 1 pc)
+    Op 40: PAINT - Setup: 1.00 hrs, Run: 0.00 hrs, Move: 4.00 hrs
+
+SETUP TIMES (Standard - Use These Exactly):
+- SAW: 0.25 hrs (ALWAYS)
+- WATERJT: 0.50 hrs (ALWAYS)
+- BEND: 0.50 hrs (simple), 2.00 hrs (complex)
+- CNC-L: 2.00 hrs (ALWAYS 2.00, NEVER 1.00)
 - CNC-M: 1.50-2.00 hrs
 - WELD: 0.50-3.00 hrs
-- PAINT: 0.50-1.00 hrs (ALWAYS 4.00 hrs move time)
+- PAINT: 0.50-1.00 hrs + 4.00 hrs move time (dry time)
+- SUB-PL: 0.00 hrs (outside vendor)
 
-Run Times Per Piece (DO NOT EXCEED):
-- SAW: 0.5 min/piece
-- WATERJET: 3-5 min/piece (simple), 10-15 min/piece (complex)
-- BEND: 0.5-1 min/piece (simple), 2-3 min/piece (complex)
-- CNC-L: 2-3 min/piece (simple lathe work - IF >5 min YOU'RE WRONG)
-- CNC-M: 2-5 min/piece
+RUN TIMES PER PIECE (Typical):
+- SAW: 0.5-2 min/piece
+- WATERJET (simple flat): 3-5 min/piece
+- WATERJET (complex/thick): 10-15 min/piece
+- BEND (simple): 0.5-1 min/piece
+- BEND (complex): 2-3 min/piece
+- CNC-L (simple turning): 2-3 min/piece ← IF YOU GO OVER 5 MIN, YOU'RE WRONG!
+- CNC-M (drilling/tapping): 2-7.5 min/piece
 - WELD: 5-40 min/piece
 
-Formula: Run Hours = (min per piece × quantity) ÷ 60
-
-Work Center Codes:
-- WATERJT - "WATERJET MACHINE"
-- SAW - "CUT OFF SAW AREA"
-- BEND - "PRESS BRAKE"
-- CNC-L - "CNC LATHE MACH."
-- CNC-M - "CNC MILL MACHINE"
-- WELD - "WELDING AREA"
-- PAINT - "SPRAY BOOTH"
-- SUB-PL - "SUB PLATING"
-
-Instructions:
+INSTRUCTIONS (Copy These Formats Exactly):
 - Waterjet: "VETTED S.O. [DATE] CUT OUT PER THE DWG AND DEBURR."
 - Saw: "CUT MATERIAL TO LENGTH PER THE DWG."
 - CNC-L: "MACHINE PART PER THE DWG AND DEBURR."
+- CNC-M: "MACHINE PART PER THE DWG AND DEBURR."
 - Bend: "BEND PART TO THE DWG."
 - Weld: "VETTED S.O. [DATE] WELD PARTS PER DRAWING."
 - Paint: "PAINT PARTS PER THE DWG."
+- Plating: "PLATE, OUTSIDE VENDOR, [TYPE]"
 
-EXAMPLES:
-Example: Simple Lathe Part (Z110001B046) - 23 pieces
-- Op 10: SAW - Setup: 0.25 hrs, Run: 0.77 hrs (2 min/piece)
-- Op 20: CNC-L - Setup: 2.00 hrs, Run: 0.77 hrs (2 min/piece)
-
-Example: Sheet Metal with Bends (Z005002A019) - 30 pieces
-- Op 10: WATERJT - Setup: 0.50 hrs, Run: 1.50 hrs (3 min/piece)
-- Op 20: BEND - Setup: 0.50 hrs, Run: 0.38 hrs (0.76 min/piece)
+HOW TO SELECT OPERATIONS:
+1. **Simple lathe part?** → SAW + CNC-L (2 operations) - See examples Z110001B045, Z110001B046
+2. **Simple sheet metal?** → WATERJET + BEND (2 operations) - See example Z005002A019
+3. **Flat waterjet only?** → WATERJET (1 operation) - See examples Z005002A017, Z110001B034
+4. **Complex machining?** → WATERJET + CNC-M (2 operations) - See example Z110001D007
+5. **DO NOT add unnecessary operations!** Most parts need 2 or fewer operations.
 """
 
 # ==========================================
@@ -654,14 +676,28 @@ def generate_router_with_gemini(pdf_file, quantity, api_key, model_name="gemini-
 TASK: Analyze this drawing and generate a router for {quantity} pieces.
 
 CRITICAL RULES:
-1. Keep it SIMPLE (2-4 operations max)
+1. **MATCH THE EXAMPLES - MOST PARTS USE ONLY 2 OPERATIONS**
+   - Simple lathe: 2 ops (SAW + CNC-L) - see examples Z110001B045, Z110001B046
+   - Simple sheet metal: 2 ops (WATERJET + BEND) - see example Z005002A019
+   - Only complex weldments or very intricate parts need 3+ operations
+   - DO NOT add extra machining steps unless the drawing clearly shows complex features
 2. CNC-L setup = 2.00 hrs ALWAYS (not 1.00)
 3. Simple lathe parts = 2-3 min/piece MAX (if >5 min YOU'RE WRONG)
-4. Use examples as baseline for times
+4. Use examples as baseline for times - reference the most similar example in your reasoning
 5. Match instruction templates exactly
 6. DESCRIPTION FORMATTING: Always put the complete description in the Description field (e.g., "SLEEVE WIPING CAP" as one entry, not split)
 
 OUTPUT: Generate M2M Standard Routing Summary in CSV format.
+
+⚠️ CRITICAL CSV OUTPUT RULES - READ CAREFULLY:
+- Output PURE CSV TEXT ONLY - NO CODE, NO HTML, NO XML, NO FORMATTING
+- DO NOT include ANY HTML/XML tags like <td>, <tr>, <strong>, <div>, etc.
+- DO NOT include ANY code operators like <, >, ==, !=, &&, ||
+- DO NOT include ANY programming syntax or logic
+- Each field must contain ONLY: letters, numbers, spaces, periods, dollar signs, hyphens
+- Use ONLY commas to separate fields
+- The last column should contain ONLY "0.00" - nothing else
+- If you accidentally generate code or HTML, the output will be REJECTED
 
 CSV STRUCTURE (output EXACTLY this format):
 Line 1: MAC,,,,,Standard Routing Summary,,,,,Page : 1 of 1
@@ -677,12 +713,21 @@ Then for each operation (2 lines):
   Instruction row: ,[INSTRUCTION],,,,,,,,,
   Empty row: ,,,,,,,,,
 After all operations:
-  Totals,,,,[TOTAL SETUP],[TOTAL RUN],0.00,0.00,0.00,"$ 0.00"
-  Totals per Unit,,,,[SETUP÷{quantity}],[RUN÷{quantity}],0.00,0.00,0.00,$ 0.00
+  Totals,,,,[TOTAL SETUP],[TOTAL RUN],0.00,0.00,0.00,0.00
+  Totals per Unit,,,,[SETUP÷{quantity}],[RUN÷{quantity}],0.00,0.00,0.00,0.00
   Empty rows
   ,,,,,,End of Report,,,,,
   Empty row
   ,,,,,,This report was requested by MAC ROUTER GENERATOR,,,,,
+
+EXAMPLE TOTALS ROWS (copy this format EXACTLY - count the commas!):
+Totals,,,,2.25,0.06,0.00,0.00,0.00,0.00
+Totals per Unit,,,,0.03,0.07,0.00,0.00,0.00,0.00
+
+CRITICAL: Both Totals rows MUST have the same number of commas and columns!
+- Start with "Totals" or "Totals per Unit"
+- Then 3 empty fields (,,,)
+- Then 6 numeric values separated by commas
 
 Remember:
 - Read part number and description from the drawing title block
@@ -691,14 +736,7 @@ Remember:
 - Standard Process Qty must be the quantity value {quantity}.00000
 - Calculate run hours: (minutes per piece × {quantity}) ÷ 60
 - Keep operations simple and realistic
-- Output ONLY the CSV (no markdown, no code blocks, no explanation)
-
-CRITICAL - NO HTML TAGS:
-- DO NOT use <strong>, <td>, <tr>, <th>, <table>, or ANY HTML tags
-- DO NOT use HTML entities like &nbsp; or &#160;
-- Output PLAIN TEXT CSV only - just commas and values
-- The Totals row should be: Totals,,,,2.25,0.50,0.00,0.00,0.00,$ 0.00
-- NOT: Totals,,,,<strong>2.25</strong>,<strong>0.50</strong>...
+- Output ONLY the CSV (no markdown, no code blocks, no explanation, NO HTML TAGS)
 """
         
         model = genai.GenerativeModel(
@@ -718,8 +756,81 @@ CRITICAL - NO HTML TAGS:
         if '```' in csv_text:
             csv_text = csv_text.split('```csv')[-1].split('```')[0].strip()
 
-        # CRITICAL: Clean any HTML tags that Gemini might have added
-        csv_text = clean_html_from_csv(csv_text)
+        # AGGRESSIVE CLEANING - Remove any malformed HTML/XML/code
+        import re
+
+        # Step 1: Remove HTML/XML tags
+        csv_text = re.sub(r'<[^>]+>', '', csv_text)
+
+        # Step 2: Remove any lines that contain code-like patterns (but keep valid CSV)
+        lines = csv_text.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            # Skip lines with obvious code patterns: <, >, ==, !=, <=, >=, etc. in operations column
+            # But allow normal CSV commas and decimals
+            if not any([
+                ' < ' in line and ' > ' in line,  # Code comparison operators
+                '<td' in line.lower(),
+                '<tr' in line.lower(),
+                '</td' in line.lower(),
+                '</tr' in line.lower(),
+                '<strong' in line.lower(),
+                'colspan' in line.lower(),
+                '&&' in line,
+                '||' in line,
+                ' == ' in line,
+                ' != ' in line,
+                '</' in line,  # Any closing tag
+                ' />' in line,  # Self-closing tag
+            ]):
+                cleaned_lines.append(line)
+        csv_text = '\n'.join(cleaned_lines)
+
+        # Step 3: Clean up extra whitespace
+        csv_text = re.sub(r'\s{2,}', ' ', csv_text)
+
+        # Step 4: Validate each line has proper CSV structure (but be less aggressive)
+        lines = csv_text.split('\n')
+        validated_lines = []
+        for i, line in enumerate(lines):
+            # Always keep empty lines
+            if not line.strip():
+                validated_lines.append(line)
+                continue
+
+            # Check if line has reasonable structure (not too many problematic characters)
+            # Valid CSV should mostly be: alphanumeric, spaces, commas, periods, $, -, :, /
+            clean_chars = sum(1 for c in line if c.isalnum() or c in ' ,.:-$/()\'\"')
+            total_chars = len(line)
+
+            # Be more permissive - allow 70% valid chars instead of 80%
+            # This helps preserve instruction rows and other valid content
+            if total_chars > 0 and (clean_chars / total_chars) > 0.70:
+                validated_lines.append(line)
+            else:
+                # Only skip lines that are REALLY malformed
+                continue
+
+        csv_text = '\n'.join(validated_lines)
+
+        # Step 5: Fix malformed Totals per Unit rows (ensure same structure as Totals row)
+        lines = csv_text.split('\n')
+        for i in range(len(lines)):
+            # If line starts with "Totals per Unit" but has too few commas
+            if lines[i].startswith('Totals per Unit'):
+                parts = lines[i].split(',')
+                # Should have at least 10 parts (label + 3 empty + 6 values)
+                if len(parts) < 10:
+                    # Pad with empty strings to match structure
+                    while len(parts) < 10:
+                        parts.insert(1, '')  # Insert empty fields after label
+                    lines[i] = ','.join(parts)
+        csv_text = '\n'.join(lines)
+
+        # Step 6: Final validation - ensure we have critical sections
+        if 'Totals' not in csv_text:
+            # If no totals found, the output might be incomplete
+            csv_text += '\nTotals,,,,0.00,0.00,0.00,0.00,0.00,0.00\nTotals per Unit,,,,0.00,0.00,0.00,0.00,0.00,0.00\n,,,,,,,,,\n,,,,,,End of Report,,,,,\n,,,,,,,,,\n,,,,,,This report was requested by MAC ROUTER GENERATOR,,,,,'
 
         return csv_text
         
@@ -728,29 +839,16 @@ CRITICAL - NO HTML TAGS:
 
 def csv_to_html(csv_text):
     """Convert CSV to HTML table for display - M2M Format"""
+    # Use csv.reader to properly parse quoted fields
+    lines_raw = csv_text.strip().split('\n')
+    lines = list(csv.reader(lines_raw))
 
-    def clean_cell(cell):
-        """Remove any HTML tags from a cell value - safety net"""
-        if not cell:
-            return cell
-        # Remove all HTML tags
-        cleaned = re.sub(r'<[^>]+>', '', str(cell))
-        # Remove HTML entities
-        cleaned = re.sub(r'&[a-zA-Z]+;', '', cleaned)
-        cleaned = re.sub(r'&#\d+;', '', cleaned)
-        # Remove quotes that might wrap values
-        cleaned = cleaned.strip().strip('"').strip("'")
-        return cleaned
-
-    lines = csv_text.strip().split('\n')
     html = '<div class="router-output">'
-
     in_operations_table = False
 
-    for i, line in enumerate(lines):
-        parts = line.split(',')
-        # Clean all parts upfront
-        parts = [clean_cell(p) for p in parts]
+    for i, parts in enumerate(lines):
+        # Get original line for string matching
+        line_str = lines_raw[i] if i < len(lines_raw) else ""
 
         # Header line - MAC logo, title, page info
         if i == 0:
@@ -766,12 +864,12 @@ def csv_to_html(csv_text):
         elif i in [1, 2]:
             date_time_info = parts[8] if len(parts) > 8 else ""
             if date_time_info:
-                # Append to router-info div (hacky but works)
+                # Append to router-info div
                 html = html.replace('</div>\n            </div>',
                                    f'<br>{date_time_info}</div>\n            </div>')
 
         # Part info table header
-        elif 'Facility' in line and 'Part Number' in line:
+        elif 'Facility' in line_str and 'Part Number' in line_str:
             html += '<table class="part-info-table"><thead><tr>'
             for cell in parts[:6]:
                 if cell.strip():
@@ -779,7 +877,7 @@ def csv_to_html(csv_text):
             html += '</tr></thead><tbody>'
 
         # Operations table header
-        elif 'Op' in line and 'Work Center' in line:
+        elif 'Op' in line_str and 'Work Center' in line_str:
             html += '</tbody></table><table class="operations-table"><thead><tr>'
             for cell in parts[:11]:  # Now 11 columns instead of 10
                 if cell.strip():
@@ -787,10 +885,13 @@ def csv_to_html(csv_text):
             html += '</tr></thead><tbody>'
             in_operations_table = True
 
-        # Totals rows (handles both "Totals" and "Totals per Unit")
-        elif parts[0].strip().startswith('Totals'):
+        # Totals rows
+        elif line_str.startswith('Totals'):
             html += '<tr class="totals-row">'
-            for j, cell in enumerate(parts[:11]):  # Now 11 columns
+            # Ensure we always have 11 columns, padding with empty cells if needed
+            padded_parts = parts + [''] * (11 - len(parts))  # Pad to 11 columns
+            for j in range(11):
+                cell = padded_parts[j] if j < len(padded_parts) else ''
                 if cell.strip():
                     html += f'<td><strong>{cell}</strong></td>'
                 else:
@@ -798,7 +899,7 @@ def csv_to_html(csv_text):
             html += '</tr>'
 
         # End of Report
-        elif 'End of Report' in line:
+        elif 'End of Report' in line_str:
             html += '</tbody></table>'
             html += '<div class="footer-line"></div>'
             html += '<div class="footer"><strong>End of Report</strong></div>'
@@ -810,14 +911,14 @@ def csv_to_html(csv_text):
                 html += f'<div class="footer-text">{footer_msg}</div>'
 
         # Data rows
-        elif parts[0] and parts[0].strip() and not line.startswith(','):
+        elif parts and parts[0] and parts[0].strip() and not line_str.startswith(','):
             html += '<tr>'
             for cell in parts[:11 if in_operations_table else 6]:  # Now 11 columns for operations
                 html += f'<td>{cell}</td>'
             html += '</tr>'
 
         # Instruction rows (start with comma)
-        elif line.startswith(',') and len(parts) > 1 and parts[1].strip():
+        elif line_str.startswith(',') and len(parts) > 1 and parts[1].strip():
             html += '<tr class="instruction-row">'
             colspan = "11" if in_operations_table else "6"  # Now colspan 11
             html += f'<td colspan="{colspan}">{parts[1]}</td>'
@@ -890,7 +991,7 @@ if prompt := st.chat_input("Attach a PDF drawing and enter quantity...", key="ch
             })
             st.session_state.chat_history.append({
                 'role': 'assistant',
-                'content': "⚠️ Please enter your Gemini API key in the sidebar to generate routers."
+                'content': "Please enter your Gemini API key in the sidebar to generate routers."
             })
             st.rerun()
         
