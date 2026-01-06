@@ -864,10 +864,29 @@ Remember:
 
         csv_text = '\n'.join(spaced_lines)
 
-        # Step 8: Final validation - ensure we have critical sections
-        if 'Totals' not in csv_text:
-            # If no totals found, the output might be incomplete
-            csv_text += '\nTotals,,,,0.00,0.00,0.00,0.00,0.00,0.00\nTotals per Unit,,,,0.00,0.00,0.00,0.00,0.00,0.00\n,,,,,,,,,\n,,,,,,End of Report,,,,,\n,,,,,,,,,\n,,,,,,This report was requested by MAC ROUTER GENERATOR,,,,,'
+        # Step 8: Final validation - ensure we have ALL critical sections
+        # Check each required section individually and add if missing
+        lines = csv_text.split('\n')
+
+        # Check for "Totals" row (must appear first)
+        has_totals = any('Totals' in line and not 'Totals per Unit' in line for line in lines)
+        if not has_totals:
+            csv_text += '\n,,,,,,,,,\nTotals,,,,0.00,0.00,0.00,0.00,0.00,0.00'
+
+        # Check for "Totals per Unit" row
+        has_totals_per_unit = any('Totals per Unit' in line for line in lines)
+        if not has_totals_per_unit:
+            csv_text += '\nTotals per Unit,,,,0.00,0.00,0.00,0.00,0.00,0.00'
+
+        # Check for "End of Report"
+        has_end_of_report = any('End of Report' in line for line in lines)
+        if not has_end_of_report:
+            csv_text += '\n,,,,,,,,,\n,,,,,,End of Report,,,'
+
+        # Check for footer message
+        has_footer = any('MAC ROUTER GENERATOR' in line or 'This report was requested' in line for line in lines)
+        if not has_footer:
+            csv_text += '\n,,,,,,,,,\n,,,,,,This report was requested by MAC ROUTER GENERATOR,,,'
 
         return csv_text
         
@@ -887,23 +906,27 @@ def csv_to_html(csv_text):
         # Get original line for string matching
         line_str = lines_raw[i] if i < len(lines_raw) else ""
 
-        # Header line - MAC logo, title, page info
+        # Header line - MAC logo, title, page info (collect all 3 lines for header)
         if i == 0:
-            page_info = parts[9] if len(parts) > 9 else ""
+            page_info = parts[10] if len(parts) > 10 else (parts[9] if len(parts) > 9 else "")
+            # Get date and time from lines 1 and 2
+            date_info = ""
+            time_info = ""
+            if len(lines) > 1 and len(lines[1]) > 9:
+                date_info = lines[1][9]
+            if len(lines) > 2 and len(lines[2]) > 9:
+                time_info = lines[2][9]
+
             html += f'''
             <div class="router-header">
                 <div class="router-logo">{parts[0]}</div>
                 <div class="router-title">{parts[5] if len(parts) > 5 else ""}</div>
-                <div class="router-info">{page_info}</div>
+                <div class="router-info">{page_info}<br>{date_info}<br>{time_info}</div>
             </div>
             '''
-        # Date and Time lines
+        # Skip date and time lines (already processed in header)
         elif i in [1, 2]:
-            date_time_info = parts[8] if len(parts) > 8 else ""
-            if date_time_info:
-                # Append to router-info div
-                html = html.replace('</div>\n            </div>',
-                                   f'<br>{date_time_info}</div>\n            </div>')
+            continue
 
         # Part info table header
         elif 'Facility' in line_str and 'Part Number' in line_str:
