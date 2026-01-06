@@ -827,7 +827,44 @@ Remember:
                     lines[i] = ','.join(parts)
         csv_text = '\n'.join(lines)
 
-        # Step 6: Final validation - ensure we have critical sections
+        # Step 6: Fix operation rows - ensure all have 10 fields (including final 0.00)
+        lines = csv_text.split('\n')
+        fixed_lines = []
+        for line in lines:
+            # Check if this is an operation data row (starts with a number like "10" or "20")
+            if line and line[0].isdigit() and ',' in line:
+                parts = line.split(',')
+                # Operation rows should have exactly 10 parts: Op, Work Center, Desc, Qty, Setup, Run, Move, Sub, Other, Cost
+                # Ensure it has 10 parts, padding with "0.00" if needed
+                while len(parts) < 10:
+                    parts.append('0.00')
+                # Ensure the last 6 columns (hours and costs) are 0.00 if empty
+                for j in range(4, 10):  # Columns 4-9 (Setup through Standard Cost)
+                    if not parts[j] or parts[j].strip() == '':
+                        parts[j] = '0.00'
+                fixed_lines.append(','.join(parts))
+            else:
+                fixed_lines.append(line)
+
+        csv_text = '\n'.join(fixed_lines)
+
+        # Step 7: Ensure proper spacing before Totals rows
+        lines = csv_text.split('\n')
+        spaced_lines = []
+        for i, line in enumerate(lines):
+            # Add line to output
+            spaced_lines.append(line)
+
+            # If this is an instruction row (starts with comma) and the NEXT line is Totals
+            # Add an empty row between them for proper spacing
+            if i < len(lines) - 1:
+                if line.startswith(',') and lines[i + 1].startswith('Totals'):
+                    # Add empty row for spacing
+                    spaced_lines.append(',,,,,,,,,')
+
+        csv_text = '\n'.join(spaced_lines)
+
+        # Step 8: Final validation - ensure we have critical sections
         if 'Totals' not in csv_text:
             # If no totals found, the output might be incomplete
             csv_text += '\nTotals,,,,0.00,0.00,0.00,0.00,0.00,0.00\nTotals per Unit,,,,0.00,0.00,0.00,0.00,0.00,0.00\n,,,,,,,,,\n,,,,,,End of Report,,,,,\n,,,,,,,,,\n,,,,,,This report was requested by MAC ROUTER GENERATOR,,,,,'
