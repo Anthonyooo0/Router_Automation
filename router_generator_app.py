@@ -568,7 +568,7 @@ MACHINED PARTS (Simple Lathe - THE BASELINE):
 3. Z110001B037 - Sleeve Disc (550 pcs) - 3 OPERATIONS (Complex with plating)
    Op 10: SAW - Setup: 0.25 hrs, Run: 4.58 hrs (0.5 min/pc)
    Op 20: CNC-L - Setup: 2.00 hrs, Run: 18.33 hrs (2 min/pc)
-   Op 30: SUB-PL - Setup: 0.00 hrs, Run: 0.00 hrs - PLATE, OUTSIDE VENDOR, ZINC PLATE
+   Op 30: SUB-PL - "SUB PLATING" - Setup: 0.00 hrs, Run: 0.00 hrs
    Instruction: "CUT MATERIAL TO LENGTH PER THE DWG." / "MACHINE PART PER THE DWG AND DEBURR." / "PLATE, OUTSIDE VENDOR, ZINC PLATE"
 
 SHEET METAL (Simple - 2 Operations):
@@ -604,7 +604,8 @@ SHEET METAL (Single Operation):
 WELDMENTS (Simple - 2 Operations):
 11. TS01000B086 - Spray Manifold Weldment (12 pcs) - 2 OPERATIONS
     Op 10: WELD - Setup: 3.00 hrs, Run: 4.00 hrs (20 min/pc)
-    Op 20: SUB-PL - Setup: 0.00 hrs, Run: 0.00 hrs - PLATE, OUTSIDE VENDOR, ZINC PLATE
+    Op 20: SUB-PL - "SUB PLATING" - Setup: 0.00 hrs, Run: 0.00 hrs
+    Instruction: "VETTED S.O. [DATE] WELD PARTS PER DRAWING." / "PLATE, OUTSIDE VENDOR, ZINC PLATE"
 
 12. TS01000C047 - Control Panel Door (6 pcs) - 2 OPERATIONS
     Op 10: WELD - Setup: 1.00 hrs, Run: 2.00 hrs (20 min/pc)
@@ -613,8 +614,9 @@ WELDMENTS (Simple - 2 Operations):
 COMPLEX PARTS (3+ Operations - RARE):
 13. Z110001A030 - Contact Plate (200 pcs) - 3 OPERATIONS
     Op 10: WATERJT - Setup: 0.50 hrs, Run: 13.33 hrs (4 min/pc)
-    Op 20: ASSY-PP - Setup: 0.50 hrs, Run: 6.67 hrs (2 min/pc) - TAP HOLES
-    Op 30: SUB-PL - Setup: 0.00 hrs, Run: 0.00 hrs - PLATE, OUTSIDE VENDOR, TIN PLATE
+    Op 20: ASSY-PP - "ASSY POWER PROP." - Setup: 0.50 hrs, Run: 6.67 hrs (2 min/pc)
+    Op 30: SUB-PL - "SUB PLATING" - Setup: 0.00 hrs, Run: 0.00 hrs
+    Instruction: "VETTED S.O. [DATE] CUT OUT PER THE DWG AND DEBURR." / "TAP HOLES PER THE DWG." / "PLATE, OUTSIDE VENDOR, TIN PLATE"
 
 14. 2651C2858-1 - Complex Weldment Assembly (1 pc) - 4 OPERATIONS
     Op 10: WELD - Setup: 3.00 hrs, Run: 5.00 hrs (5 hrs for 1 pc)
@@ -650,7 +652,7 @@ INSTRUCTIONS (Copy These Formats Exactly):
 - Bend: "BEND PART TO THE DWG."
 - Weld: "VETTED S.O. [DATE] WELD PARTS PER DRAWING."
 - Paint: "PAINT PARTS PER THE DWG."
-- Plating: "PLATE, OUTSIDE VENDOR, [TYPE]"
+- Plating (SUB-PL): Operation Description = "SUB PLATING", Instruction = "PLATE, OUTSIDE VENDOR, [TYPE] PLATE" (e.g., ZINC PLATE, TIN PLATE)
 
 HOW TO SELECT OPERATIONS:
 1. **Simple lathe part?** → SAW + CNC-L (2 operations) - See examples Z110001B045, Z110001B046
@@ -712,13 +714,37 @@ Then for each operation (2 lines):
   Data row: [OP#],[CODE],[DESC],{quantity}.0000,[SETUP],[RUN],0.00,0.00,0.00,0.00
   Instruction row: ,[INSTRUCTION],,,,,,,,,
   Empty row: ,,,,,,,,,
+
+  IMPORTANT FOR SUB-PL OPERATIONS:
+  - Work Center: SUB-PL
+  - Operation Description: "SUB PLATING" (not "PLATE TIN" or "PLATE OUTSIDE VENDOR")
+  - Instruction row (CRITICAL - must be complete): "PLATE, OUTSIDE VENDOR, ZINC PLATE" or "PLATE, OUTSIDE VENDOR, TIN PLATE"
+  - DO NOT abbreviate the instruction - include "PLATE, OUTSIDE VENDOR, [TYPE] PLATE" in full
 After all operations:
   Totals,,,,[TOTAL SETUP],[TOTAL RUN],0.00,0.00,0.00,0.00
   Totals per Unit,,,,[SETUP÷{quantity}],[RUN÷{quantity}],0.00,0.00,0.00,0.00
+
+  ⚠️ CRITICAL: TOTALS MUST BE CALCULATED CORRECTLY!
+  - Add up ALL Setup Hours from all operations for [TOTAL SETUP]
+  - Add up ALL Production Hours from all operations for [TOTAL RUN]
+  - Divide totals by quantity for "Totals per Unit"
+  - DO NOT put 0.00 in Totals unless all operations actually have 0 hours!
+
   Empty rows
   ,,,,,,End of Report,,,,,
   Empty row
   ,,,,,,This report was requested by MAC ROUTER GENERATOR,,,,,
+
+EXAMPLE OPERATION WITH INSTRUCTION (copy this format EXACTLY):
+10,SAW,CUT TO LENGTH,1.0000,0.25,0.01,0.00,0.00,0.00,0.00
+,CUT MATERIAL TO LENGTH PER THE DWG.,,,,,,,,,
+,,,,,,,,,
+20,CNC-L,MACHINE PART,1.0000,2.00,0.05,0.00,0.00,0.00,0.00
+,MACHINE PART PER THE DWG AND DEBURR.,,,,,,,,,
+,,,,,,,,,
+30,SUB-PL,SUB PLATING,1.0000,0.00,0.00,0.00,0.00,0.00,0.00
+,PLATE, OUTSIDE VENDOR, ZINC PLATE,,,,,,,,,
+,,,,,,,,,
 
 EXAMPLE TOTALS ROWS (copy this format EXACTLY - count the commas!):
 Totals,,,,2.25,0.06,0.00,0.00,0.00,0.00
@@ -729,6 +755,11 @@ CRITICAL: Both Totals rows MUST have the same number of commas and columns!
 - Then 3 empty fields (,,,)
 - Then 6 numeric values separated by commas
 
+⚠️ CRITICAL STRUCTURE RULES:
+1. EVERY operation row MUST be followed by an instruction row (starts with comma)
+2. EVERY instruction row MUST be followed by an empty row
+3. Pattern: Operation → Instruction → Empty Row → (repeat) → Totals
+
 Remember:
 - Read part number and description from the drawing title block
 - IMPORTANT: The Description field must contain the COMPLETE description as a single entry (e.g., "SLEEVE WIPING CAP" not split across fields)
@@ -736,6 +767,7 @@ Remember:
 - Standard Process Qty must be the quantity value {quantity}.00000
 - Calculate run hours: (minutes per piece × {quantity}) ÷ 60
 - Keep operations simple and realistic
+- FOR SUB-PL OPERATIONS: Use "SUB PLATING" in description, and full instruction "PLATE, OUTSIDE VENDOR, ZINC PLATE" (not just "PLATE")
 - Output ONLY the CSV (no markdown, no code blocks, no explanation, NO HTML TAGS)
 """
         
@@ -838,29 +870,189 @@ Remember:
                 # Ensure it has 10 parts, padding with "0.00" if needed
                 while len(parts) < 10:
                     parts.append('0.00')
-                # Ensure the last 6 columns (hours and costs) are 0.00 if empty
+                # Ensure the last 6 columns (hours and costs) are properly formatted
                 for j in range(4, 10):  # Columns 4-9 (Setup through Standard Cost)
                     if not parts[j] or parts[j].strip() == '':
                         parts[j] = '0.00'
+                    else:
+                        # Normalize "0" to "0.00" and ensure proper decimal format
+                        try:
+                            val = float(parts[j].strip())
+                            parts[j] = f'{val:.2f}'
+                        except ValueError:
+                            parts[j] = '0.00'
                 fixed_lines.append(','.join(parts))
             else:
                 fixed_lines.append(line)
 
         csv_text = '\n'.join(fixed_lines)
 
+        # Step 6.5: Ensure instruction rows exist after each operation row
+        lines = csv_text.split('\n')
+        operation_fixed_lines = []
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            # Check if this is an operation data row (starts with a number)
+            if line and line[0].isdigit() and ',' in line:
+                # Add the operation row
+                operation_fixed_lines.append(line)
+
+                # Parse operation row to check work center
+                parts = line.split(',')
+                work_center = parts[1] if len(parts) > 1 else ""
+
+                # Check if NEXT line is an instruction row (starts with comma and has text)
+                if i + 1 < len(lines):
+                    next_line = lines[i + 1]
+                    if next_line.startswith(',') and len(next_line.split(',')) > 1 and next_line.split(',')[1].strip():
+                        # Instruction row exists - validate for SUB-PL operations
+                        if work_center.strip() == 'SUB-PL':
+                            # For SUB-PL, check if instruction contains "OUTSIDE VENDOR" in the ENTIRE line (not just first column)
+                            if 'OUTSIDE VENDOR' not in next_line:
+                                # Replace with proper instruction - Gemini generated incomplete instruction
+                                # IMPORTANT: Quote the instruction so comma doesn't split it into multiple cells
+                                operation_fixed_lines.append(',"PLATE, OUTSIDE VENDOR",,,,,,,,,')
+                            else:
+                                # Good instruction exists, but ensure it's properly quoted to prevent CSV splitting
+                                # Extract the instruction text (after first comma)
+                                inst_parts = next_line.split(',', 1)  # Split on first comma only
+                                if len(inst_parts) > 1:
+                                    inst_text = inst_parts[1].rstrip(',')  # Get instruction part, remove trailing commas
+                                    # If instruction contains commas and isn't already quoted, quote it
+                                    if ',' in inst_text and not (inst_text.startswith('"') and inst_text.endswith('"')):
+                                        # Remove existing commas and quote the whole instruction
+                                        operation_fixed_lines.append(f',"{inst_text.strip()}",,,,,,,,,')
+                                    else:
+                                        # Already quoted or no commas, keep as-is
+                                        operation_fixed_lines.append(next_line)
+                                else:
+                                    operation_fixed_lines.append(next_line)
+                        else:
+                            # Good - instruction row exists for other operations
+                            operation_fixed_lines.append(next_line)
+
+                        i += 2  # Skip both operation and instruction rows
+
+                        # Now ensure empty row after instruction
+                        if i < len(lines) and lines[i].strip() and not lines[i].strip() == ',,,,,,,,,':
+                            operation_fixed_lines.append(',,,,,,,,,')
+                        elif i < len(lines):
+                            operation_fixed_lines.append(lines[i])
+                            i += 1
+                    else:
+                        # Missing instruction row - add operation-specific placeholder
+                        if work_center.strip() == 'SUB-PL':
+                            # For plating operations, use generic instruction (no plating type specified)
+                            # IMPORTANT: Quote the instruction so comma doesn't split it into multiple cells
+                            operation_fixed_lines.append(',"PLATE, OUTSIDE VENDOR",,,,,,,,,')
+                        elif work_center.strip() == 'SAW':
+                            operation_fixed_lines.append(',CUT MATERIAL TO LENGTH PER THE DWG.,,,,,,,,,')
+                        elif work_center.strip() == 'CNC-L':
+                            operation_fixed_lines.append(',MACHINE PART PER THE DWG AND DEBURR.,,,,,,,,,')
+                        elif work_center.strip() == 'CNC-M':
+                            operation_fixed_lines.append(',MACHINE PART PER THE DWG AND DEBURR.,,,,,,,,,')
+                        elif work_center.strip() == 'WATERJT':
+                            operation_fixed_lines.append(',VETTED S.O. [DATE] CUT OUT PER THE DWG AND DEBURR.,,,,,,,,,')
+                        elif work_center.strip() == 'BEND':
+                            operation_fixed_lines.append(',BEND PART TO THE DWG.,,,,,,,,,')
+                        elif work_center.strip() == 'WELD':
+                            operation_fixed_lines.append(',VETTED S.O. [DATE] WELD PARTS PER DRAWING.,,,,,,,,,')
+                        elif work_center.strip() == 'PAINT':
+                            operation_fixed_lines.append(',PAINT PARTS PER THE DWG.,,,,,,,,,')
+                        else:
+                            operation_fixed_lines.append(',INSTRUCTIONS NOT PROVIDED IN OUTPUT,,,,,,,,,')
+                        operation_fixed_lines.append(',,,,,,,,,')
+                        i += 1
+                else:
+                    # End of file, add operation-specific placeholder
+                    if work_center.strip() == 'SUB-PL':
+                        # IMPORTANT: Quote the instruction so comma doesn't split it into multiple cells
+                        operation_fixed_lines.append(',"PLATE, OUTSIDE VENDOR",,,,,,,,,')
+                    elif work_center.strip() == 'SAW':
+                        operation_fixed_lines.append(',CUT MATERIAL TO LENGTH PER THE DWG.,,,,,,,,,')
+                    elif work_center.strip() == 'CNC-L':
+                        operation_fixed_lines.append(',MACHINE PART PER THE DWG AND DEBURR.,,,,,,,,,')
+                    elif work_center.strip() == 'CNC-M':
+                        operation_fixed_lines.append(',MACHINE PART PER THE DWG AND DEBURR.,,,,,,,,,')
+                    elif work_center.strip() == 'WATERJT':
+                        operation_fixed_lines.append(',VETTED S.O. [DATE] CUT OUT PER THE DWG AND DEBURR.,,,,,,,,,')
+                    elif work_center.strip() == 'BEND':
+                        operation_fixed_lines.append(',BEND PART TO THE DWG.,,,,,,,,,')
+                    elif work_center.strip() == 'WELD':
+                        operation_fixed_lines.append(',VETTED S.O. [DATE] WELD PARTS PER DRAWING.,,,,,,,,,')
+                    elif work_center.strip() == 'PAINT':
+                        operation_fixed_lines.append(',PAINT PARTS PER THE DWG.,,,,,,,,,')
+                    else:
+                        operation_fixed_lines.append(',INSTRUCTIONS NOT PROVIDED IN OUTPUT,,,,,,,,,')
+                    operation_fixed_lines.append(',,,,,,,,,')
+                    i += 1
+            else:
+                # Not an operation row, just add it
+                operation_fixed_lines.append(line)
+                i += 1
+
+        csv_text = '\n'.join(operation_fixed_lines)
+
+        # Step 6.6: Calculate Totals from operations (DETERMINISTIC - don't rely on Gemini)
+        lines = csv_text.split('\n')
+
+        # Extract all operation hours - this is now the SINGLE SOURCE OF TRUTH for totals
+        total_setup = 0.0
+        total_run = 0.0
+        quantity_value = quantity  # Use the quantity parameter
+
+        for line in lines:
+            # Check if line starts with a number (operation row like "10,WATERJT,...")
+            if line and ',' in line:
+                parts = line.split(',')
+                # Check if first part (after strip) looks like an operation number (10, 20, 30, etc.)
+                if len(parts) > 0 and parts[0].strip() and parts[0].strip().isdigit():
+                    try:
+                        # Extract setup and run hours from columns 4 and 5
+                        setup_hours = float(parts[4].strip()) if len(parts) > 4 and parts[4].strip() else 0.0
+                        run_hours = float(parts[5].strip()) if len(parts) > 5 and parts[5].strip() else 0.0
+                        total_setup += setup_hours
+                        total_run += run_hours
+                    except (ValueError, IndexError) as e:
+                        # Skip malformed rows
+                        continue
+
+        # Calculate per-unit totals
+        per_unit_setup = total_setup / quantity_value if quantity_value > 0 else 0.0
+        per_unit_run = total_run / quantity_value if quantity_value > 0 else 0.0
+
+        # Now find and replace Totals rows if they exist
+        fixed_totals_lines = []
+        for i, line in enumerate(lines):
+            if line.startswith('Totals') and not line.startswith('Totals per Unit'):
+                # Replace with calculated values
+                fixed_totals_lines.append(f'Totals,,,,{total_setup:.2f},{total_run:.2f},0.00,0.00,0.00,0.00')
+            elif line.startswith('Totals per Unit'):
+                # Replace with calculated values
+                fixed_totals_lines.append(f'Totals per Unit,,,,{per_unit_setup:.2f},{per_unit_run:.2f},0.00,0.00,0.00,0.00')
+            else:
+                # Not a totals row, keep as-is
+                fixed_totals_lines.append(line)
+
+        csv_text = '\n'.join(fixed_totals_lines)
+
         # Step 7: Ensure proper spacing before Totals rows
         lines = csv_text.split('\n')
         spaced_lines = []
         for i, line in enumerate(lines):
-            # Add line to output
-            spaced_lines.append(line)
-
-            # If this is an instruction row (starts with comma) and the NEXT line is Totals
-            # Add an empty row between them for proper spacing
-            if i < len(lines) - 1:
-                if line.startswith(',') and lines[i + 1].startswith('Totals'):
-                    # Add empty row for spacing
+            # Check if NEXT line is Totals and current line is NOT already empty
+            if i < len(lines) - 1 and lines[i + 1].startswith('Totals'):
+                # Add current line
+                spaced_lines.append(line)
+                # If current line is NOT empty (more robust check), add empty row for spacing
+                # Consider a line empty if it's blank or contains only commas
+                stripped = line.strip().replace(',', '')
+                if stripped:  # If there's ANY content beyond commas
                     spaced_lines.append(',,,,,,,,,')
+            else:
+                # Normal line - just add it
+                spaced_lines.append(line)
 
         csv_text = '\n'.join(spaced_lines)
 
@@ -869,14 +1061,15 @@ Remember:
         lines = csv_text.split('\n')
 
         # Check for "Totals" row (must appear first)
+        # Use the CALCULATED totals from Step 6.6 (not 0.00!)
         has_totals = any('Totals' in line and not 'Totals per Unit' in line for line in lines)
         if not has_totals:
-            csv_text += '\n,,,,,,,,,\nTotals,,,,0.00,0.00,0.00,0.00,0.00,0.00'
+            csv_text += f'\n,,,,,,,,,\nTotals,,,,{total_setup:.2f},{total_run:.2f},0.00,0.00,0.00,0.00'
 
         # Check for "Totals per Unit" row
         has_totals_per_unit = any('Totals per Unit' in line for line in lines)
         if not has_totals_per_unit:
-            csv_text += '\nTotals per Unit,,,,0.00,0.00,0.00,0.00,0.00,0.00'
+            csv_text += f'\nTotals per Unit,,,,{per_unit_setup:.2f},{per_unit_run:.2f},0.00,0.00,0.00,0.00'
 
         # Check for "End of Report"
         has_end_of_report = any('End of Report' in line for line in lines)
